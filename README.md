@@ -41,9 +41,11 @@ pyssh/
 │   ├── network.py       # interfaces, CIDR, validação de host (iproute2)
 │   ├── scanner.py       # varredura TCP, timeout, concorrência, cancelamento
 │   ├── ssh_client.py    # monta e executa a sessão OpenSSH
+│   ├── terminal.py      # detecta terminais e abre sessões independentes
+│   ├── gui.py           # janela Tkinter/ttk (só aqui há GUI)
 │   └── settings.py      # preferências compartilhadas, porta padrão 8022
 ├── cli.py               # pyssh-cli (linha de comando)
-├── main.py              # (Fase 4) interface gráfica
+├── main.py              # pyssh (interface gráfica)
 ├── pyproject.toml
 ├── docs/
 │   ├── RELATORIO-DESENVOLVIMENTO.md
@@ -54,6 +56,26 @@ pyssh/
 
 O núcleo **não importa** módulos da GUI. A aplicação gráfica e a CLI
 consumirão os mesmos módulos, evitando duplicação de lógica.
+
+## Interface gráfica (Fase 4)
+
+Requer Tkinter do sistema (Arch/CachyOS: `sudo pacman -S tk`). Sem ele,
+`pyssh` explica o problema e sugere a CLI (código de saída 4).
+
+```bash
+pyssh              # ou: python main.py
+pyssh --selftest   # abre e fecha a janela sozinho (verificação)
+```
+
+A janela oferece campo da rede (auto-detectada), porta `8022` editável,
+usuário SSH, botões **Escanear rede** / **Cancelar busca** / **Conectar via
+SSH** / **Copiar IP**, resultados em tabela (IP, hostname, porta, estado) e
+um painel de logs com horário e níveis (INFO/AVISO/ERRO), limpar e copiar.
+
+A varredura roda em thread própria e a interface nunca trava; fechar a
+janela cancela a busca. A conexão abre um terminal do sistema (kitty,
+konsole, xfce4-terminal, alacritty, gnome-terminal, urxvt ou xterm) em
+processo separado, então a sessão continua depois de fechar o `pyssh`.
 
 ## Uso do núcleo
 

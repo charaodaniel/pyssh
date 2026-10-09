@@ -10,8 +10,8 @@
 | 1 | Núcleo compartilhado | ✅ concluída |
 | 2 | `pyssh-cli` | ✅ concluída |
 | 3 | Scanner de rede (amadurecimento) | 🟡 parcial |
-| 4 | Interface gráfica (Tkinter/ttk) | ⬜ pendente |
-| 5 | Sessões SSH independentes | ⬜ pendente |
+| 4 | Interface gráfica (Tkinter/ttk) | 🟡 código pronto, falta validar |
+| 5 | Sessões SSH independentes | 🟡 base criada (`terminal.py`) |
 | 6 | Configurações e descoberta complementar | 🟡 parcial |
 | 7 | Testes | 🟡 parcial |
 | 8 | Documentação e distribuição | 🟡 parcial |
@@ -212,31 +212,33 @@ autenticação seja aceita.
 
 ## 7. Fase 4 — Interface gráfica
 
-* [ ] Criar a janela principal com Tkinter/ttk.
-* [ ] Adicionar campo para a faixa de rede.
-* [ ] Adicionar campo editável para a porta.
-* [ ] Preencher a porta com `8022` por padrão.
-* [ ] Criar o botão **Escanear rede**.
-* [ ] Criar o botão **Cancelar busca**.
-* [ ] Exibir os resultados em `ttk.Treeview`.
-* [ ] Mostrar IP, hostname quando disponível, porta e estado.
-* [ ] Permitir selecionar e copiar um endereço IP.
-* [ ] Adicionar campo para o usuário SSH.
-* [ ] Criar o botão **Conectar via SSH**.
-* [ ] Mostrar progresso sem congelar a interface.
-* [ ] Exibir mensagens quando nenhum dispositivo for encontrado.
+* [x] Criar a janela principal com Tkinter/ttk (`pyssh/gui.py`, entrada
+      `main.py` / comando `pyssh`).
+* [x] Adicionar campo para a faixa de rede (auto-detectado).
+* [x] Adicionar campo editável para a porta.
+* [x] Preencher a porta com `8022` por padrão.
+* [x] Criar o botão **Escanear rede**.
+* [x] Criar o botão **Cancelar busca**.
+* [x] Exibir os resultados em `ttk.Treeview`.
+* [x] Mostrar IP, hostname quando disponível, porta e estado.
+* [x] Permitir selecionar e copiar um endereço IP.
+* [x] Adicionar campo para o usuário SSH.
+* [x] Criar o botão **Conectar via SSH**.
+* [x] Mostrar progresso sem congelar a interface (thread + fila + `after`).
+* [x] Exibir mensagens quando nenhum dispositivo for encontrado.
+* [ ] Validar a janela num display real (depende do pacote `tk`).
 
 ### Painel de saída
 
-* [ ] Registrar o início e o término das buscas.
-* [ ] Informar a rede e a porta utilizadas.
-* [ ] Mostrar dispositivos encontrados.
-* [ ] Exibir erros de rede, timeouts e configurações inválidas.
-* [ ] Informar falhas ao abrir o terminal ou iniciar o SSH.
-* [ ] Exibir horário das mensagens.
-* [ ] Diferenciar informações, avisos e erros.
-* [ ] Permitir limpar e copiar os logs.
-* [ ] Nunca registrar senhas ou dados sensíveis de autenticação.
+* [x] Registrar o início e o término das buscas.
+* [x] Informar a rede e a porta utilizadas.
+* [x] Mostrar dispositivos encontrados.
+* [x] Exibir erros de rede, timeouts e configurações inválidas.
+* [x] Informar falhas ao abrir o terminal ou iniciar o SSH.
+* [x] Exibir horário das mensagens.
+* [x] Diferenciar informações, avisos e erros (INFO/AVISO/ERRO).
+* [x] Permitir limpar e copiar os logs.
+* [x] Nunca registrar senhas ou dados sensíveis de autenticação.
 
 ## 8. Fase 5 — Sessões SSH independentes
 
@@ -276,7 +278,7 @@ encerrar o `pyssh` e continuar trabalhando no terminal independente.
 
 ## 10. Fase 7 — Testes
 
-* [x] Testar o núcleo sem Tkinter (89 testes, `unittest` da stdlib).
+* [x] Testar o núcleo sem Tkinter (110 testes, `unittest` da stdlib).
 * [x] Testar a CLI em ambiente sem desktop (testes sem Tkinter e sem tty).
 * [ ] Testar a GUI no CachyOS.
 * [x] Testar a porta padrão `8022`.

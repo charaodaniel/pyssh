@@ -12,19 +12,23 @@
       não carrega e a GUI fica inviável de testar (`libtk8.6.so` ausente).
 * [ ] Criar o `LICENSE` (MIT) — o README já declara MIT.
 
-## Fase 4 — Interface gráfica (próxima entrega)
+## Fase 4 — Interface gráfica (código pronto, falta validar com `tk`)
 
-* [ ] `main.py` com a janela principal Tkinter/ttk.
-* [ ] Campo da faixa de rede (auto-preenchido com `guess_network()`).
-* [ ] Campo da porta, preenchido com `8022`, validado antes da busca.
-* [ ] Botões **Escanear rede** e **Cancelar busca** (via `threading.Event`).
-* [ ] Resultados em `ttk.Treeview` (IP, hostname, porta, estado).
-* [ ] Selecionar e copiar um endereço IP.
-* [ ] Campo do usuário SSH + botão **Conectar via SSH**.
-* [ ] Painel de logs: horário, níveis (info/aviso/erro), limpar e copiar,
+> Implementados em `main.py` + `pyssh/gui.py` (+ `pyssh/terminal.py`).
+> A validação da janela depende de instalar o pacote `tk` (ação imediata).
+
+* [x] `main.py` com a janela principal Tkinter/ttk (`pyssh`, com `--selftest`).
+* [x] Campo da faixa de rede (auto-preenchido com `guess_network()`).
+* [x] Campo da porta, preenchido com `8022`, validado antes da busca.
+* [x] Botões **Escanear rede** e **Cancelar busca** (via `threading.Event`).
+* [x] Resultados em `ttk.Treeview` (IP, hostname, porta, estado).
+* [x] Selecionar e copiar um endereço IP.
+* [x] Campo do usuário SSH + botão **Conectar via SSH**.
+* [x] Painel de logs: horário, níveis (info/aviso/erro), limpar e copiar,
       sem bloquear a interface (fila entre threads e `after()`).
-* [ ] Mensagem clara quando nenhum dispositivo for encontrado.
-* [ ] Fechar a janela finaliza buscas e tarefas auxiliares.
+* [x] Mensagem clara quando nenhum dispositivo for encontrado.
+* [x] Fechar a janela cancela a busca e encerra as tarefas auxiliares.
+* [ ] Abrir a janela num display real e testar busca/conexão manualmente.
 
 ## Fase 5 — Sessões SSH independentes
 
