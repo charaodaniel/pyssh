@@ -1,5 +1,6 @@
 """Testes do módulo pyssh.settings (sem Tkinter)."""
 
+import json
 import os
 import tempfile
 import unittest
@@ -84,6 +85,31 @@ class SettingsPersistenceTests(unittest.TestCase):
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("{ not json")
             self.assertEqual(load_settings(path).port, 8022)
+
+    def test_extra_nao_aninha_a_cada_roundtrip(self):
+        # Regressão: a chave "extra" não pode entrar dentro de "extra".
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "settings.json")
+            original = Settings(extra={"tema": "escuro"})
+            for _ in range(5):
+                save_settings(original, path)
+                original = load_settings(path)
+            self.assertEqual(original.extra, {"tema": "escuro"})
+
+    def test_repara_extra_aninhado_do_bug_antigo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "settings.json")
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(
+                    {"port": 8022, "extra": {"extra": {"extra": {"extra": {}}}}},
+                    fh,
+                )
+            loaded = load_settings(path)
+            self.assertEqual(loaded.port, 8022)
+            self.assertEqual(loaded.extra, {})
+            # E o ciclo seguinte não volta a aninhar.
+            save_settings(loaded, path)
+            self.assertEqual(load_settings(path).extra, {})
 
 
 if __name__ == "__main__":

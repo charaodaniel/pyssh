@@ -2,6 +2,9 @@
 
 import contextlib
 import io
+import os
+import shutil
+import tempfile
 import unittest
 from unittest import mock
 
@@ -19,7 +22,20 @@ class FakeTty(io.StringIO):
 
 @contextlib.contextmanager
 def fake_ssh(path="/usr/bin/ssh"):
-    with mock.patch("pyssh.ssh_client.shutil.which", return_value=path):
+    """Finge que o ``ssh`` existe SEM esconder os demais binários.
+
+    O patch em ``shutil.which`` é global (o módulo é o mesmo objeto em todo
+    o processo); por isso só o ``ssh`` é falsificado e qualquer outra busca
+    (``ssh-keygen``, terminais) vai ao ``which`` real.
+    """
+    real_which = shutil.which
+
+    def which(name, *args, **kwargs):
+        if name == "ssh":
+            return path
+        return real_which(name, *args, **kwargs)
+
+    with mock.patch("pyssh.ssh_client.shutil.which", side_effect=which):
         yield path
 
 
@@ -304,6 +320,207 @@ class ConnectTests(unittest.TestCase):
             code, _, err = run(["connect", "192.168.8.52"])
         self.assertEqual(code, 130)
         self.assertIn("Interrompido", err)
+
+
+class NewCommandsTests(unittest.TestCase):
+    """Subcomandos connections/keys/history (isolados em XDG temporário)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        cfg = os.path.join(self.tmp.name, "cfg")
+        data = os.path.join(self.tmp.name, "data")
+        self.env = mock.patch.dict(
+            os.environ, {"XDG_CONFIG_HOME": cfg, "XDG_DATA_HOME": data}
+        )
+        self.env.start()
+        self.addCleanup(self.env.stop)
+
+    # ----- connections -----
+
+    def test_connections_add_list(self):
+        code, out, _ = run(
+            ["connections", "add", "-n", "Termux", "-H", "192.168.8.54", "-u", "termux"]
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("Conexão criada", out)
+
+        code, out, _ = run(["connections", "list"])
+        self.assertEqual(code, 0)
+        self.assertIn("Termux", out)
+        self.assertIn("192.168.8.54", out)
+
+    def test_connections_add_sem_args(self):
+        code, _, err = run(["connections", "add"])
+        self.assertEqual(code, 2)
+        self.assertIn("--name", err)
+
+    def test_connections_add_host_invalido(self):
+        code, _, err = run(["connections", "add", "-n", "X", "-H", "999.999.999.999"])
+        self.assertEqual(code, 2)
+        self.assertIn("erro:", err)
+
+    def test_connections_edit(self):
+        run(["connections", "add", "-n", "Termux", "-H", "192.168.8.54"])
+        code, out, _ = run(["connections", "edit", "Termux", "-u", "dev"])
+        self.assertEqual(code, 0)
+        self.assertIn("atualizada", out)
+
+    def test_connections_delete_sem_confirmacao_nao_tty(self):
+        run(["connections", "add", "-n", "Termux", "-H", "192.168.8.54"])
+        code, _, err = run(["connections", "delete", "Termux"])  # stdin não-tty
+        self.assertEqual(code, 2)
+        self.assertIn("--yes", err)
+
+    def test_connections_delete_yes(self):
+        run(["connections", "add", "-n", "Termux", "-H", "192.168.8.54"])
+        code, out, _ = run(["connections", "delete", "Termux", "--yes"])
+        self.assertEqual(code, 0)
+        self.assertIn("excluída", out)
+
+    def test_connections_delete_inexistente(self):
+        code, _, err = run(["connections", "delete", "nao", "--yes"])
+        self.assertEqual(code, 2)
+        self.assertIn("não encontrada", err)
+
+    def test_connections_duplicate(self):
+        run(["connections", "add", "-n", "Termux", "-H", "192.168.8.54"])
+        code, out, _ = run(["connections", "duplicate", "Termux"])
+        self.assertEqual(code, 0)
+        self.assertIn("duplicada", out)
+
+    def test_connections_vazio(self):
+        code, _, err = run(["connections", "list"])
+        self.assertEqual(code, 0)
+        self.assertIn("Nenhuma conexão", err)
+
+    def test_connect_por_nome_usa_conexao_salva(self):
+        run(["connections", "add", "-n", "Termux", "-H", "192.168.8.54", "-p", "8022", "-u", "termux"])
+        with mock.patch("cli.run_interactive", return_value=0) as run_ssh:
+            code, _, _ = run(["connect", "Termux"])
+        self.assertEqual(code, 0)
+        command = run_ssh.call_args[0][0]
+        self.assertIn("192.168.8.54", command)
+        self.assertIn("termux", command)
+
+    # ----- keys -----
+
+    def test_keys_list_vazio(self):
+        code, _, err = run(["keys", "list"])
+        self.assertEqual(code, 0)
+        self.assertIn("Nenhuma chave", err)
+
+    def test_keys_add_e_list(self):
+        code, out, _ = run(["keys", "add", "-n", "casa", "--path", "/tmp/chave-x"])
+        self.assertEqual(code, 0)
+        self.assertIn("cadastrada", out)
+        code, out, _ = run(["keys", "list"])
+        self.assertIn("casa", out)
+        self.assertIn("AUSENTE", out)  # arquivo não existe ainda
+
+    def test_keys_add_sem_args(self):
+        code, _, err = run(["keys", "add"])
+        self.assertEqual(code, 2)
+        self.assertIn("--name", err)
+
+    def test_keys_delete_inexistente(self):
+        code, _, err = run(["keys", "delete", "nao", "--yes"])
+        self.assertEqual(code, 2)
+        self.assertIn("não encontrada", err)
+
+    def test_keys_show_dados_e_publica(self):
+        key = os.path.join(self.tmp.name, "id_show")
+        with open(key, "w") as fh:
+            fh.write("x")
+        pub = key + ".pub"
+        with open(pub, "w") as fh:
+            fh.write("ssh-ed25519 AAAA3Nza test@host\n")
+        run(["keys", "add", "-n", "showcase", "--path", key])
+
+        code, out, _ = run(["keys", "show", "showcase"])
+        self.assertEqual(code, 0)
+        self.assertIn("showcase", out)
+        self.assertIn("ssh-ed25519 AAAA3Nza", out)
+        self.assertIn("AAAA3Nza", out)
+
+        # --public-only imprime só a linha da pública (para colar no servidor).
+        code, out, _ = run(["keys", "show", "showcase", "--public-only"])
+        self.assertEqual(code, 0)
+        self.assertEqual(out.strip(), "ssh-ed25519 AAAA3Nza test@host")
+
+    def test_keys_show_inexistente(self):
+        code, _, err = run(["keys", "show", "nao"])
+        self.assertEqual(code, 2)
+        self.assertIn("não encontrada", err)
+
+    def test_keys_generate_sem_path_usa_padrao(self):
+        if shutil.which("ssh-keygen") is None:
+            self.skipTest("ssh-keygen indisponível")
+        home = os.path.join(self.tmp.name, "home")
+        os.makedirs(home)
+        with mock.patch.dict(os.environ, {"HOME": home}):
+            code, out, _ = run(["keys", "generate"])
+        self.assertEqual(code, 0)
+        expected = os.path.join(home, ".ssh", "id_ed25519")
+        self.assertIn(expected, out)
+        self.assertTrue(os.path.isfile(expected))
+        self.assertIn("SHA256:", out)
+        self.assertIn("salva como referência", out)
+
+    # ----- history -----
+
+    def test_history_list_vazio(self):
+        code, _, err = run(["history", "list"])
+        self.assertEqual(code, 0)
+        self.assertIn("Nenhum evento", err)
+
+    def test_history_registra_e_lista(self):
+        from pyssh import history
+
+        history.record("scan_started", address="192.168.8.0/24", port=8022, status="ok")
+        code, out, _ = run(["history", "list"])
+        self.assertEqual(code, 0)
+        self.assertIn("scan_started", out)
+
+    def test_history_filtro_event(self):
+        from pyssh import history
+
+        history.record("scan_started", address="192.168.8.0/24")
+        history.record("device_found", address="192.168.8.54")
+        code, out, _ = run(["history", "list", "--event", "device_found"])
+        self.assertEqual(code, 0)
+        self.assertIn("device_found", out)
+        self.assertNotIn("scan_started", out)
+
+    def test_history_export_csv(self):
+        from pyssh import history
+
+        history.record("scan_started", address="192.168.8.0/24", port=8022, status="ok")
+        destino = os.path.join(self.tmp.name, "out.csv")
+        code, out, _ = run(["history", "export", "-o", destino, "-f", "csv"])
+        self.assertEqual(code, 0)
+        self.assertIn("Exportado", out)
+        self.assertTrue(os.path.isfile(destino))
+        with open(destino, encoding="utf-8") as fh:
+            self.assertIn("scan_started", fh.read())
+
+    def test_history_export_sem_eventos(self):
+        code, _, err = run(["history", "export"])
+        self.assertEqual(code, 3)
+        self.assertIn("Nenhum evento", err)
+
+    def test_history_clear_yes(self):
+        from pyssh import history
+
+        history.record("scan_started", address="192.168.8.0/24")
+        code, out, _ = run(["history", "clear", "--yes"])
+        self.assertEqual(code, 0)
+        self.assertIn("apagado", out)
+
+    def test_history_fields(self):
+        code, out, _ = run(["history", "fields"])
+        self.assertEqual(code, 0)
+        self.assertIn("scan_started", out)
 
 
 if __name__ == "__main__":

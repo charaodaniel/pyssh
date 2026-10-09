@@ -4,6 +4,11 @@
 > Visão de produto e pendências: [ROADMAP.md](../ROADMAP.md).
 > Uso e instalação: [README.md](../README.md).
 
+> **Entrega mais recente (abaixo, seção 9):** CRUD de conexões, referências
+> a chaves SSH, histórico JSONL com exportação CSV, integração na CLI e GUI
+> (abas Conexões/Chaves/Histórico) e terminal padrão do sistema.
+> 216 testes OK.
+
 ## 1. Resumo
 
 `pyssh` é uma ferramenta leve para Linux que localiza dispositivos com SSH na
@@ -147,6 +152,9 @@ Problemas reais encontrados pelos testes/smoke tests e corrigidos na origem:
 
 ## 8. Como reproduzir as verificações
 
+> Esta seção descreve as verificações das fases iniciais. As da entrega
+> recente estão na seção 9.
+
 ```bash
 git clone git@github.com:charaodaniel/pyssh.git
 cd pyssh
@@ -164,3 +172,135 @@ Para simular um terminal interativo sem sair do shell:
 ```bash
 printf '1\n' | script -qec "pyssh-cli scan -n 127.0.0.1/32 -p 8022" /dev/null
 ```
+
+---
+
+## 9. Entrega — conexões, chaves, histórico e terminal padrão (09/10/2026)
+
+Esta fase implementa o novo roadmap (Fases 3–9) sem remover nada do que já
+existia: os módulos antigos (`network`, `scanner`, `ssh_client`, `terminal`,
+`settings`) e a CLI/GUI atuais continuam intactos e com todos os testes
+originais passando.
+
+### 9.1 Módulos novos
+
+| Módulo | Responsabilidade |
+| --- | --- |
+| `storage.py` | Diretórios XDG (`$XDG_CONFIG_HOME/pyssh`, `$XDG_DATA_HOME/pyssh`), gravação de JSON **atômica** (`os.replace` + `fsync`), permissões restritas (0700/0600), leitura tolerante de JSONL, escrita de CSV. |
+| `connections.py` | CRUD de conexões salvas: nome, host, porta (padrão 8022), usuário, referência a chave, observações, ID curto e carimbos de data. Validação de campos, nome único (sem diferenciar caixa), busca, duplicação. |
+| `keys.py` | Referências a chaves SSH: nome + caminho (expandido). Geração real via `ssh-keygen` (ed25519/rsa/ecdsa), impressão digital (`ssh-keygen -lf`), tipo pelo `.pub`, alerta de permissões amplas. **Remover referência nunca apaga o arquivo** (a menos que `--delete-file`). |
+| `history.py` | Histórico em JSON Lines com 7 campos (timestamp, event, connection_id, address, port, status, message), filtros combináveis (evento, estado, endereço por substring, data, conexão, limite), exportação CSV/JSONL, rotação por tamanho (1 MiB, 3 rotações) e limpeza. |
+
+Cada entrega do roadmap está refletida no `ROADMAP.md` (checkboxes) e no
+`README.md` (exemplos de uso).
+
+### 9.2 Integração na CLI
+
+Novos subcomandos, com a mesma filosofia de exit codes da CLI original:
+
+```text
+pyssh-cli connections list|add|edit|delete|duplicate|fields
+pyssh-cli keys list|add|edit|delete|generate|fields
+pyssh-cli history list|export|clear|fields
+pyssh-cli connect HOST|NOME        # resolve conexão salva e injeta -i da chave
+```
+
+* `connect NOME` procura primeiro nas conexões salvas (por ID ou nome); não
+  achando, trata o argumento como host (compatível com o uso anterior).
+  Quando a conexão tem chave associada, o `-i <caminho>` é injetado antes do
+  host.
+* Exclusões (`delete`/`clear`) exigem confirmação: `--yes` pula; sem tty e
+  sem `--yes`, é **erro de uso (exit 2)** — decisão explícita, documentada.
+
+### 9.3 Integração na GUI
+
+A janela passou a usar `ttk.Notebook` com quatro abas — **Descoberta**,
+**Conexões**, **Chaves** e **Histórico** — mantendo os atributos testados
+(`network_var`, `port_var`, `tree`, `worker`, `log_panel`, `status_var`).
+
+* **Conexões:** tabela + adicionar/editar/duplicar/excluir/conectar (duplo
+  clique conecta) + campo de busca.
+* **Chaves:** tabela com tipo e impressão digital + cadastrar/editar/
+  remover/gerar nova.
+* **Histórico:** tabela (mais recente primeiro) + filtros por evento e
+  endereço + exportar CSV (via diálogo) + limpar (com confirmação).
+* Diálogos simples (`_ask_form`) sem dependências externas.
+
+### 9.4 Terminal padrão do sistema (correção importante)
+
+O `find_terminal(configured)` anterior retornava só o caminho, **sem o
+argumento de execução** — e o Alacritty (terminal padrão deste sistema,
+`Mod+Return` no niri) **falha sem `-e`** (comprovado: exit 2). Correções:
+
+1. `exec_args_for()` devolve o argumento certo por terminal (`-e`, `--` para
+   gnome-terminal, `-x` para xfce4-terminal) e convenção `-e` para
+   desconhecidos.
+2. `detect_system_terminal()` detecta o padrão do sistema: `settings.terminal`
+   → spec XDG (`xdg-terminal-exec`) → `$TERMINAL` → `x-terminal-emulator` →
+   lista fixa.
+3. `settings.terminal = "alacritty"` gravado nas preferências.
+
+Também foi corrigido um bug real em `settings.py`: a chave `extra` aninhava
+`{"extra": {"extra": ...}}` a cada gravação (o arquivo do usuário acumulava
+níveis). O `from_dict` agora ignora a própria chave e **repara** arquivos já
+corrompidos no load.
+
+### 9.5 Segurança (invariantes verificados)
+
+* Chaves privadas **nunca** copiadas para o diretório do `pyssh` — só o
+  caminho é guardado.
+* Nenhuma senha, passphrase ou material de chave é gravado nos arquivos de
+  dados nem no histórico.
+* A autenticação permanece 100% do OpenSSH; o registro final do histórico
+  usa o código de saída do `ssh` (não declara "autenticado" sem confirmação).
+* Arquivos de dados gravados com 0600 e diretórios 0700; gravação atômica
+  para não corromper JSON em caso de queda.
+
+### 9.6 Decisões técnicas
+
+| Decisão | Motivo | Alternativa descartada |
+| --- | --- | --- |
+| JSON atômico (tmp + `os.replace` + `fsync`) | Nunca deixar arquivo pela metade | Sobrescrita direta |
+| Histórico em JSON Lines | Acrescentar evento sem reescrever o arquivo; rotação simples | JSON único (reescrita total) ou SQLite (peso) |
+| Chaves como **referências** (não cópias) | Sem duplicar segredo; usuário mantém controle | Copiar chave para o diretório do app |
+| `_confirm` tri-valente (True/False/None) | Distinguir "recusou" de "não posso confirmar" (exit 2) | `bool` só (perdia o caso de erro de uso) |
+| IDs curtos de 12 hex + busca por nome | Legíveis na CLI e estáveis | Só nome (ambíguo) ou UUID longo |
+| Loja por arquivo com escrita atômica inteira | Poucos registros; sem dependência | Bloco de registro/lock |
+
+### 9.7 Verificações executadas (09/10/2026)
+
+| Verificação | Resultado |
+| --- | --- |
+| `python3 -m unittest discover -s tests -t .` | **216 testes OK** (125 anteriores + 91 novos) |
+| Testes novos (`storage`, `connections`, `keys`, `history`) | 70 OK — CRUD, validação, persistência, rotação, filtros, exportação |
+| Testes novos de CLI (`NewCommandsTests`) | 21 OK — subcomandos, exit codes, confirmação sem tty |
+| Geração real de chave `ed25519` via `ssh-keygen` | OK — cria `.pub`, devolve `SHA256:...`; destino ocupado é recusado |
+| `pyssh-cli connect NOME` (mock do `run_interactive`) | OK — resolve a conexão salva e monta `ssh -p … -i <chave> <host>` |
+| `pyssh --selftest` (GUI) | OK — janela em abas abre e fecha (exit 0) |
+| E2E terminal padrão: `settings → alacritty -e ssh → Termux` | OK — comando remoto executou no dispositivo |
+
+### 9.8 Bugs encontrados e corrigidos nesta entrega
+
+1. `ConnectionStore._load` deixava `StorageError` vazar em vez de converter
+   em `ConnectionsError` (mesmo caso no `KeyStore`/`KeyError_`) — corrigido
+   na origem, não no teste.
+2. `_confirm` retornava falso positivo de "cancelado" (exit 0) quando não
+   havia tty e faltava `--yes` — deveria ser erro de uso (exit 2); corrigido
+   com retorno tri-valente.
+3. `find_terminal(configured)` sem argumento de execução quebrava o
+   Alacritty — corrigido (seção 9.4).
+4. `settings.py` aninhava `extra` a cada gravação — corrigido e com teste de
+   regressão.
+
+### 9.9 Limitações conhecidas desta entrega
+
+* O `settings.json` ainda fica em `~/.pyssh-settings.json` (compatibilidade);
+  os novos módulos já usam XDG. A migração está no TODO.
+* A geração de chave na GUI usa diálogo simples (sem escolher bits de RSA;
+  a CLI aceita `--bits`).
+* Falta o teste automatizado de fechamento **forçado** da GUI durante sessão
+  ativa (a desanexação em si é coberta por teste unitário de
+  `spawn_session`).
+* A suíte usa `unittest` (stdlib); `pytest` roda os mesmos testes, mas é
+  dependência opcional de desenvolvimento (não instalada por padrão, para
+  manter o runtime sem terceiros).

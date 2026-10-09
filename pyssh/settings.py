@@ -125,7 +125,16 @@ class Settings:
             "last_interface": data.get("last_interface"),
             "terminal": data.get("terminal"),
         }
-        extra = {k: v for k, v in data.items() if k not in known}
+        # Chaves desconhecidas viram ``extra``; a própria chave "extra" é o
+        # recipiente gravado em disco e NÃO pode entrar aqui (senão cada
+        # ciclo de carga/gravação aninha mais um nível — bug corrigido).
+        extra = {k: v for k, v in data.items() if k not in known and k != "extra"}
+        saved = data.get("extra")
+        # Repara arquivos corrompidos pelo bug antigo: {"extra": {"extra": ...}}.
+        while isinstance(saved, Mapping) and set(saved) == {"extra"}:
+            saved = saved["extra"]
+        if isinstance(saved, Mapping):
+            extra = {**saved, **extra}
         known["extra"] = extra
         return cls(**known)
 

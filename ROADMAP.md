@@ -1,57 +1,51 @@
 # pyssh — Roadmap do Projeto
 
-> Ferramenta leve para Linux que localiza dispositivos com SSH na rede local e
-> permite iniciar conexões por interface gráfica ou terminal.
+> Aplicação Linux em Python para descobrir dispositivos SSH na rede local,
+> gerenciar conexões e chaves, iniciar sessões remotas e consultar o
+> histórico de atividades.
 
-## Status atual
-
-| Fase | Descrição | Estado |
-| --- | --- | --- |
-| 1 | Núcleo compartilhado | ✅ concluída |
-| 2 | `pyssh-cli` | ✅ concluída |
-| 3 | Scanner de rede (amadurecimento) | 🟡 parcial |
-| 4 | Interface gráfica (Tkinter/ttk) | ✅ concluída |
-| 5 | Sessões SSH independentes | 🟡 base criada (`terminal.py`) |
-| 6 | Configurações e descoberta complementar | 🟡 parcial |
-| 7 | Testes | 🟡 parcial |
-| 8 | Documentação e distribuição | 🟡 parcial |
-
-Acompanhamento técnico: [docs/RELATORIO-DESENVOLVIMENTO.md](docs/RELATORIO-DESENVOLVIMENTO.md).
-Lista do que falta: [docs/TODO.md](docs/TODO.md).
+> **Status (09/10/2026):** Fases 1–9 praticamente entregues — núcleo,
+> `pyssh-cli` completo (`scan`, `connect`, `connections`, `keys`, `history`),
+> GUI em abas, sessões independentes, 216 testes OK. Pendências finais:
+> fechamento da Fase 10 (distribuição) e alguns itens de polish.
+> Acompanhamento: [docs/RELATORIO-DESENVOLVIMENTO.md](docs/RELATORIO-DESENVOLVIMENTO.md),
+> pendências: [docs/TODO.md](docs/TODO.md).
 
 ## 1. Objetivo
 
-O `pyssh` será desenvolvido em Python e terá duas interfaces:
+Aplicação Linux em Python para descobrir dispositivos SSH na rede local,
+gerenciar conexões e chaves, iniciar sessões remotas e consultar o
+histórico de atividades.
 
-* **pyssh:** interface gráfica usando Tkinter/ttk.
-* **pyssh-cli:** interface de linha de comando para desktops, terminais e
-  servidores sem ambiente gráfico.
+O projeto terá duas interfaces:
 
-Ambas compartilharão o mesmo núcleo de descoberta de rede, varredura TCP,
-configurações e preparação de conexões SSH.
+* **pyssh:** interface gráfica com Tkinter/ttk.
+* **pyssh-cli:** interface de linha de comando para desktops e servidores
+  sem ambiente gráfico.
 
-O primeiro cenário de uso será localizar um telefone Android com Termux e
-servidor SSH ativo, normalmente na porta `8022`, mesmo após mudanças de
-endereço IP.
-
-O projeto deverá priorizar baixo consumo de recursos, simplicidade,
-modularidade e ausência de dependências desnecessárias.
+Ambas utilizarão o mesmo núcleo de rede, conexão, armazenamento e histórico.
 
 ## 2. Tecnologias
 
 * Python 3
-* Tkinter/ttk para a interface gráfica
-* `socket` para verificações TCP
-* `threading` para operações de rede sem bloquear a GUI
-* `subprocess` para iniciar OpenSSH e terminais
-* `iproute2` para identificação da rede local
-* OpenSSH para autenticação e sessões remotas
-* Git para versionamento
+* Tkinter/ttk para a GUI
+* `socket` para varredura TCP
+* `threading` para tarefas de rede
+* `subprocess` para iniciar o OpenSSH e terminais
+* `iproute2` para identificação de redes
+* OpenSSH para autenticação
+* JSON para configurações e conexões
+* CSV para exportação de histórico
+* `pytest` para testes automatizados
 
-O núcleo e a CLI deverão funcionar sem Tkinter e sem dependências de
-interface gráfica.
+> **Nota desta entrega:** a suíte usa `unittest` da biblioteca padrão (os
+> testes rodam com `pytest` sem alteração, pois são `unittest.TestCase`).
+> `pytest` é uma dependência de desenvolvimento opcional; o runtime não
+> requer nenhuma biblioteca de terceiros.
 
-## 3. Arquitetura e estrutura de diretórios
+Não será necessário utilizar banco de dados no MVP.
+
+## 3. Estrutura do projeto
 
 ```text
 pyssh/
@@ -60,294 +54,304 @@ pyssh/
 │   ├── network.py
 │   ├── scanner.py
 │   ├── ssh_client.py
+│   ├── terminal.py        # terminais do sistema e sessões desanexadas
+│   ├── connections.py     # CRUD de conexões salvas
+│   ├── keys.py            # referências a chaves SSH
+│   ├── history.py         # histórico JSONL + exportação CSV
+│   ├── storage.py         # dirs XDG, JSON atômico, permissões
+│   ├── gui.py             # janela Tkinter/ttk
 │   └── settings.py
+├── main.py
 ├── cli.py
-├── main.py              # (Fase 4)
 ├── pyproject.toml
 ├── README.md
 ├── ROADMAP.md
-├── docs/
-│   ├── RELATORIO-DESENVOLVIMENTO.md
-│   └── TODO.md
 ├── .gitignore
 └── tests/
-    ├── test_cli.py
     ├── test_network.py
     ├── test_scanner.py
+    ├── test_ssh_client.py
+    ├── test_terminal.py
+    ├── test_connections.py
+    ├── test_keys.py
+    ├── test_history.py
+    ├── test_storage.py
     ├── test_settings.py
-    └── test_ssh_client.py
+    ├── test_cli.py
+    └── test_gui.py
 ```
 
-### Responsabilidades
+### Responsabilidades dos módulos
 
-* `main.py`: inicialização da interface gráfica.
-* `cli.py`: comandos e interação por terminal.
-* `network.py`: descoberta e validação de redes e interfaces.
-* `scanner.py`: varredura TCP, timeouts e concorrência.
-* `ssh_client.py`: inicialização das conexões SSH e terminais independentes.
-* `settings.py`: preferências compartilhadas.
-* `tests/`: testes automatizados.
-
-O núcleo não deverá importar módulos da GUI. A aplicação gráfica e a CLI
-consumirão os mesmos módulos, evitando duplicação da lógica.
+* `network.py`: identificação e validação de redes.
+* `scanner.py`: descoberta de dispositivos e portas abertas.
+* `ssh_client.py`: preparação e inicialização das sessões SSH.
+* `terminal.py`: detecção do terminal do sistema e sessões fora do processo.
+* `connections.py`: CRUD de conexões salvas.
+* `keys.py`: cadastro, listagem e gerenciamento de referências a chaves SSH.
+* `history.py`: registro e consulta de atividades.
+* `storage.py`: leitura, gravação e validação dos arquivos JSON/CSV.
+* `settings.py`: preferências gerais.
+* `main.py`: interface gráfica.
+* `cli.py`: comandos de terminal.
 
 ## 4. Fase 1 — Núcleo compartilhado ✅
 
-* [x] Criar a estrutura inicial do projeto.
-* [x] Implementar a identificação das interfaces de rede (`ip -json addr`).
-* [x] Identificar a faixa IPv4/CIDR quando possível.
-* [x] Permitir informar manualmente a faixa de rede.
-* [x] Validar endereços, portas e timeouts.
-* [x] Criar o módulo de scanner TCP.
-* [x] Implementar a configuração de porta com padrão `8022`.
-* [x] Definir resultados estruturados para os dispositivos encontrados.
-* [x] Separar a lógica de rede de qualquer interface.
-* [x] Criar testes básicos do núcleo.
-
-**Resultado:** biblioteca interna funcional que poderá ser utilizada pela GUI e
-pela CLI.
-
-### API entregue
-
-```python
-from pyssh.network import guess_network, validate_network, iter_hosts
-from pyssh.scanner import scan, HostResult
-from pyssh.settings import Settings, DEFAULT_PORT  # 8022
-
-rede = guess_network()                      # Interface | None
-faixa = validate_network("192.168.8.0/24")  # "192.168.8.0/24"
-
-report = scan(faixa, port=8022, timeout=0.5, progress=print)
-abertos = report.open_hosts                 # List[HostResult]
-```
-
-## 5. Fase 2 — pyssh-cli
-
-### Funcionalidades
-
-* [x] Pesquisar dispositivos em uma faixa de rede.
+* [x] Criar a estrutura modular.
+* [x] Implementar a identificação da rede local (`ip -json addr`, com fallback).
+* [x] Implementar a varredura TCP (threads, timeout, cancelamento).
 * [x] Utilizar `8022` como porta padrão.
-* [x] Permitir alterar a porta em cada busca (`--port`).
-* [x] Exibir IP, hostname quando disponível e estado da porta.
-* [x] Mostrar progresso e erros no terminal.
-* [x] Permitir cancelar a busca com `Ctrl+C` (código 130, lista o parcial).
-* [x] Oferecer seleção interativa dos resultados.
-* [x] Permitir conexão direta com um IP conhecido.
-* [x] Abrir uma sessão SSH interativa no terminal atual.
-* [x] Retornar códigos de saída apropriados para scripts.
-* [x] Funcionar sem ambiente gráfico ou Tkinter.
+* [x] Permitir alterar a porta na GUI e na CLI.
+* [x] Validar faixas de rede, portas e timeouts.
+* [x] Criar resultados estruturados para os dispositivos encontrados.
 
-### Exemplos de utilização
+## 5. Fase 2 — pyssh-cli ✅
+
+* [x] Implementar `pyssh-cli scan`.
+* [x] Implementar `pyssh-cli connect`.
+* [x] Permitir informar rede, usuário e porta.
+* [x] Listar dispositivos encontrados.
+* [x] Oferecer seleção interativa de resultados.
+* [x] Exibir mensagens de erro e progresso (stdout/stderr separados).
+* [x] Funcionar sem Tkinter ou ambiente gráfico.
+* [x] Integrar os comandos de conexões, chaves e histórico.
 
 ```bash
 pyssh-cli scan --network 192.168.8.0/24
 pyssh-cli scan --network 192.168.8.0/24 --port 22
 pyssh-cli connect 192.168.8.52 --user dev --port 8022
-pyssh-cli --help
+pyssh-cli connect Termux            # abre uma conexão salva pelo nome
+pyssh-cli connections list
+pyssh-cli keys list
+pyssh-cli history list
 ```
 
-### Modo interativo
+## 6. Fase 3 — CRUD de conexões SSH ✅
+
+### Dados de cada conexão
+
+* [x] Nome amigável da conexão.
+* [x] Endereço IP ou hostname.
+* [x] Porta SSH, com padrão `8022`.
+* [x] Nome de usuário.
+* [x] Referência opcional a uma chave SSH.
+* [x] Observações opcionais.
+* [x] Data de criação e última atualização.
+
+### Operações
+
+* [x] Criar uma conexão salva.
+* [x] Listar e pesquisar conexões.
+* [x] Editar os dados de uma conexão.
+* [x] Excluir uma conexão com confirmação.
+* [x] Abrir uma sessão a partir de uma conexão salva.
+* [x] Duplicar uma configuração para criar outra conexão.
+* [x] Validar os campos antes de salvar.
+
+### Interface gráfica
+
+* [x] Seção **Conexões salvas** com tabela, pesquisa e ações
+      (adicionar, editar, excluir, duplicar, conectar).
+
+### CLI
+
+```bash
+pyssh-cli connections list [--search TEXTO]
+pyssh-cli connections add -n NOME -H HOST [-p PORTA] [-u USUÁRIO] [-k CHAVE]
+pyssh-cli connections edit ID|NOME [campos]
+pyssh-cli connections delete ID|NOME [--yes]
+pyssh-cli connections duplicate ID|NOME [--name NOVO]
+pyssh-cli connect NOME
+```
+
+## 7. Fase 4 — CRUD de chaves SSH ✅
+
+### Funcionalidades
+
+* [x] Cadastrar uma referência para uma chave privada existente.
+* [x] Listar chaves cadastradas.
+* [x] Mostrar nome, caminho, tipo quando identificável e chave pública correspondente.
+* [x] Editar nome e caminho de uma referência.
+* [x] Remover uma referência do `pyssh` sem apagar automaticamente o arquivo original.
+* [x] Associar uma chave a uma ou mais conexões (via `--key` em conexões).
+* [x] Permitir usar a chave padrão do OpenSSH (caminho `~/.ssh/...`).
+* [x] Verificar se o arquivo referenciado existe e possui permissões adequadas.
+* [x] Permitir gerar novas chaves usando o `ssh-keygen` do sistema.
+* [x] Permitir consultar a impressão digital da chave pública (`ssh-keygen -lf`).
+* [x] Registrar no histórico as operações administrativas relevantes.
+
+### Segurança
+
+* [x] As chaves privadas não são copiadas para o diretório do `pyssh`.
+* [x] As senhas de proteção das chaves não são armazenadas.
+* [x] A autenticação é delegada ao OpenSSH (e ao `ssh-agent`).
+* [x] A exclusão de uma referência não apaga a chave privada original.
+* [x] A interface alerta antes de operações destrutivas (`--delete-file`).
+* [x] O histórico não registra material de chave privada, senhas ou passphrases.
+
+### CLI
+
+```bash
+pyssh-cli keys list [--search TEXTO]
+pyssh-cli keys add -n NOME --path CAMINHO
+pyssh-cli keys edit ID|NOME [campos]
+pyssh-cli keys delete ID|NOME [--yes] [--delete-file]
+pyssh-cli keys generate --type ed25519 --path CAMINHO [--name NOME]
+```
+
+A geração permite selecionar o tipo (`ed25519`, `rsa`, `ecdsa`) e o caminho
+de destino, usando o `ssh-keygen` instalado.
+
+## 8. Fase 5 — Histórico de atividades ✅
+
+### Eventos registrados
+
+* [x] Busca de dispositivos iniciada e concluída (`scan_started`/`scan_finished`).
+* [x] Dispositivos encontrados (`device_found`).
+* [x] Tentativas de abertura de conexão SSH (`connection_attempt`).
+* [x] Inicialização de sessões SSH (`session_started`).
+* [x] Erros de conexão conhecidos (`session_error`).
+* [x] Criação, edição e exclusão de conexões salvas.
+* [x] Cadastro, alteração e remoção de referências a chaves.
+* [x] Exportação do histórico (`history_exported`).
+
+O aplicativo distingue **tentativa iniciada**, **processo SSH iniciado** e
+**sessão encerrada**; não declara sucesso de autenticação sem confirmação
+confiável (o registro final usa o código de saída do próprio `ssh`).
+
+### Campos do histórico
+
+* [x] Data e hora (`timestamp`).
+* [x] Tipo de evento (`event`).
+* [x] Identificador da conexão (`connection_id`).
+* [x] Endereço do dispositivo (`address`).
+* [x] Porta utilizada (`port`).
+* [x] Resultado ou estado (`status`).
+* [x] Mensagem de diagnóstico sem credenciais (`message`).
+
+### Armazenamento
+
+* [x] Salvar o histórico em JSON Lines (`history.jsonl`), um evento por linha.
+* [x] Consultar o histórico na GUI e na CLI.
+* [x] Filtrar por data, dispositivo, tipo de evento e resultado.
+* [x] Exportar o histórico para CSV.
+* [x] Exportar uma seleção ou o histórico completo.
+* [x] Limite de tamanho e rotação dos arquivos (1 MiB, 3 rotações).
+* [x] Tratar arquivos ausentes, corrompidos ou sem permissão de escrita.
+* [x] Limpar o histórico mediante confirmação.
+
+### CLI
+
+```bash
+pyssh-cli history list [--limit 50] [--event T] [--address H] [--status E]
+pyssh-cli history export --format csv|jsonl [--output ARQUIVO]
+pyssh-cli history clear [--yes]
+```
+
+## 9. Fase 6 — Armazenamento e diretórios ✅
 
 ```text
-Dispositivos encontrados:
+~/.config/pyssh/
+├── settings.json
+├── connections.json
+└── keys.json
 
-[1] 192.168.8.52:8022
-[2] 192.168.8.71:8022
-
-Selecione um dispositivo:
+~/.local/share/pyssh/
+└── history.jsonl
 ```
 
-### Compatibilidade com servidores
+> **Nota desta entrega:** o `settings.json` ainda vive em
+> `~/.pyssh-settings.json` (compatibilidade); os novos módulos já usam os
+> diretórios XDG. A migração do settings está no TODO.
 
-* [x] Executar sem Tkinter.
-* [x] Funcionar em servidores sem desktop.
-* [x] Suportar execução por SSH em outra máquina.
-* [x] Evitar dependências gráficas.
-* [x] Exibir mensagens de erro claras.
-* [x] Não armazenar senhas.
-* [x] Permitir integração com scripts de administração (stdout/stderr separados
-      e códigos de saída).
+* [x] Criar os diretórios automaticamente (0700).
+* [x] Validar os dados ao carregar os arquivos.
+* [x] Evitar corromper configurações durante gravações (escrita atômica).
+* [x] Utilizar gravação atômica para arquivos JSON (`os.replace`).
+* [x] Definir permissões restritas para os arquivos de configuração (0600).
+* [x] Implementar tratamento para dados inválidos.
+* [x] Documentar os caminhos e os procedimentos de backup.
 
-### Códigos de saída
+## 10. Fase 7 — Interface gráfica completa ✅
 
-| Código | Significado |
-| --- | --- |
-| 0 | sucesso |
-| 1 | erro interno inesperado |
-| 2 | argumentos ou configuração inválidos |
-| 3 | nenhum dispositivo com a porta aberta |
-| 4 | OpenSSH ausente ou `ssh` retornou 255 |
-| 130 | interrompido pelo usuário (Ctrl+C) |
-| demais | propagados do `ssh` |
+* [x] Criar a tela de descoberta de rede.
+* [x] Criar a tabela de dispositivos encontrados.
+* [x] Criar o painel de saída e erros em tempo real.
+* [x] Criar a seção de conexões salvas.
+* [x] Criar a seção de gerenciamento de chaves.
+* [x] Criar a seção de histórico.
+* [x] Adicionar filtros e pesquisa.
+* [x] Permitir exportar o histórico.
+* [x] Abrir cada conexão SSH em terminal independente.
+* [x] Garantir que fechar a GUI não encerre sessões já abertas.
 
-**Resultado:** busca e conexão disponíveis diretamente no terminal.
+## 11. Fase 8 — Sessões independentes ✅
 
-## 6. Fase 3 — Scanner de rede
+* [x] Detectar terminais disponíveis no Linux (kitty, konsole, xfce4-terminal,
+      alacritty, gnome-terminal, urxvt, xterm + terminal padrão do sistema).
+* [x] Abrir cada conexão da GUI em uma janela independente.
+* [x] Desacoplar as sessões do ciclo de vida da interface (`start_new_session`).
+* [x] Permitir várias sessões simultâneas.
+* [x] Garantir que o scanner seja encerrado ao fechar a GUI.
+* [x] Na CLI, utilizar o terminal atual por padrão.
+* [x] Tratar falhas na inicialização de terminais.
+* [ ] Testar o encerramento normal e forçado da GUI (parcial — mecânica coberta).
 
-* [x] Percorrer os endereços da faixa selecionada.
-* [x] Verificar a disponibilidade da porta TCP configurada.
-* [x] Limitar a concorrência para evitar consumo excessivo de recursos.
-* [x] Utilizar timeouts configuráveis.
-* [ ] Atualizar os resultados progressivamente (callback `progress` pronto;
-      falta exibição na GUI).
-* [x] Permitir cancelar a busca (`threading.Event`).
-* [x] Tratar hosts sem resposta e erros de socket.
-* [x] Impedir buscas simultâneas acidentais.
-* [x] Identificar os dispositivos que apresentam a porta aberta.
+## 12. Fase 9 — Testes ✅
 
-### Configuração da porta
+* [x] Testar descoberta de rede e portas.
+* [x] Testar alterações da porta padrão.
+* [x] Testar o CRUD completo de conexões.
+* [x] Testar o CRUD de referências a chaves.
+* [x] Testar a geração de chaves pelo OpenSSH.
+* [x] Testar o histórico e os filtros.
+* [x] Testar exportações CSV e JSONL.
+* [x] Testar arquivos inválidos e permissões insuficientes.
+* [x] Testar a CLI em servidores sem ambiente gráfico.
+* [x] Testar a GUI no CachyOS.
+* [ ] Testar sessões SSH independentes (mecânica coberta; falta o teste de
+      fechamento forçado da GUI).
+* [x] Confirmar que o histórico não contém segredos.
 
-* Porta padrão: `8022`.
-* Campo editável na GUI e argumento editável na CLI.
-* Intervalo válido: `1` a `65535`.
-* A porta utilizada deverá aparecer nos resultados.
-* O valor escolhido deverá ser utilizado na conexão SSH.
-* Uma porta inválida deverá impedir a busca e produzir uma mensagem clara.
+> **216 testes** (`unittest` da stdlib; rodam também com `pytest`).
 
-O scanner verificará a acessibilidade TCP da porta. Uma porta aberta é um
-indício de serviço acessível, mas não garante que o serviço seja SSH nem que a
-autenticação seja aceita.
+## 13. Fase 10 — Documentação e distribuição
 
-**Resultado:** descoberta de dispositivos sem depender de endereços IP fixos.
+* [x] Documentar instalação e dependências.
+* [x] Documentar GUI e CLI.
+* [x] Explicar o armazenamento local e os formatos.
+* [x] Documentar o gerenciamento de chaves.
+* [x] Explicar como exportar e limpar o histórico.
+* [x] Criar exemplos de comandos.
+* [x] Configurar pontos de entrada no `pyproject.toml` (`pyssh`, `pyssh-cli`).
+* [ ] Avaliar distribuição para outras distribuições Linux (PKGBUILD/AUR, pipx).
+* [ ] Criar o arquivo `LICENSE` (MIT, já declarado no README).
 
-## 7. Fase 4 — Interface gráfica
+## 14. Critérios de conclusão do MVP
 
-* [x] Criar a janela principal com Tkinter/ttk (`pyssh/gui.py`, entrada
-      `main.py` / comando `pyssh`).
-* [x] Adicionar campo para a faixa de rede (auto-detectado).
-* [x] Adicionar campo editável para a porta.
-* [x] Preencher a porta com `8022` por padrão.
-* [x] Criar o botão **Escanear rede**.
-* [x] Criar o botão **Cancelar busca**.
-* [x] Exibir os resultados em `ttk.Treeview`.
-* [x] Mostrar IP, hostname quando disponível, porta e estado.
-* [x] Permitir selecionar e copiar um endereço IP.
-* [x] Adicionar campo para o usuário SSH.
-* [x] Criar o botão **Conectar via SSH**.
-* [x] Mostrar progresso sem congelar a interface (thread + fila + `after`).
-* [x] Exibir mensagens quando nenhum dispositivo for encontrado.
-* [x] Validar a janela num display real: `pyssh --selftest` saiu 0 e os
-      testes de GUI passaram abrindo a janela, rodando uma busca real e
-      conferindo tabela e logs.
+1. [x] O scanner localiza dispositivos com a porta selecionada aberta.
+2. [x] `8022` é a porta padrão, mas pode ser alterada.
+3. [x] GUI e CLI compartilham o mesmo núcleo.
+4. [x] O usuário pode salvar, editar e excluir conexões.
+5. [x] O usuário pode cadastrar referências a chaves SSH e associá-las a conexões.
+6. [x] A autenticação é executada pelo OpenSSH.
+7. [x] O histórico é salvo localmente e pode ser exportado.
+8. [x] A GUI exibe erros e eventos em tempo real.
+9. [x] As sessões SSH abertas sobrevivem ao encerramento da GUI.
+10. [x] A CLI funciona sem ambiente gráfico.
+11. [x] Nenhum segredo de autenticação é gravado nos arquivos de dados ou no histórico.
 
-### Painel de saída
+## 15. Ordem de desenvolvimento
 
-* [x] Registrar o início e o término das buscas.
-* [x] Informar a rede e a porta utilizadas.
-* [x] Mostrar dispositivos encontrados.
-* [x] Exibir erros de rede, timeouts e configurações inválidas.
-* [x] Informar falhas ao abrir o terminal ou iniciar o SSH.
-* [x] Exibir horário das mensagens.
-* [x] Diferenciar informações, avisos e erros (INFO/AVISO/ERRO).
-* [x] Permitir limpar e copiar os logs.
-* [x] Nunca registrar senhas ou dados sensíveis de autenticação.
+1. [x] Núcleo de rede e scanner.
+2. [x] CLI básica.
+3. [x] Armazenamento JSON e CRUD de conexões.
+4. [x] Gerenciamento de referências a chaves SSH.
+5. [x] Histórico JSONL e exportação CSV.
+6. [x] Interface gráfica e painel de logs.
+7. [x] Sessões SSH independentes.
+8. [x] Testes, documentação e distribuição.
 
-## 8. Fase 5 — Sessões SSH independentes
-
-### Comportamento obrigatório
-
-* [ ] Cada conexão iniciada pela GUI abrirá em um terminal independente.
-* [ ] O terminal e o cliente SSH serão iniciados em processos independentes do
-      `pyssh`.
-* [ ] Fechar a GUI não deverá encerrar as sessões já abertas.
-* [ ] O usuário poderá manter várias sessões simultâneas.
-* [ ] Cada sessão poderá ser encerrada individualmente.
-* [ ] O terminal deverá continuar interativo para comandos e autenticação.
-* [ ] O encerramento da GUI deverá finalizar as buscas e tarefas auxiliares.
-* [ ] A aplicação não deverá manter processos desnecessários após iniciar a
-      conexão.
-
-### Compatibilidade
-
-* [ ] Detectar terminais instalados no sistema.
-* [ ] Suportar terminais como Kitty, Konsole e Xfce Terminal quando
-      disponíveis.
-* [ ] Informar quando nenhum terminal compatível estiver instalado.
-* [ ] Permitir configurar um terminal alternativo.
-
-**Critério principal:** depois de iniciar uma conexão, o usuário poderá
-encerrar o `pyssh` e continuar trabalhando no terminal independente.
-
-## 9. Fase 6 — Configurações e descoberta complementar
-
-* [x] Salvar preferências básicas (`settings.py`, JSON no `$HOME`).
-* [x] Manter `8022` como porta padrão inicial.
-* [x] Permitir lembrar a última faixa de rede utilizada (`last_network`).
-* [ ] Avaliar lembrar a última porta selecionada.
-* [ ] Adicionar descoberta complementar por mDNS/Avahi.
-* [ ] Permitir selecionar interfaces de rede diferentes.
-* [ ] Adicionar suporte futuro a perfis do `~/.ssh/config`.
-
-## 10. Fase 7 — Testes
-
-* [x] Testar o núcleo sem Tkinter (112 testes, `unittest` da stdlib).
-* [x] Testar a CLI em ambiente sem desktop (testes sem Tkinter e sem tty).
-* [x] Testar a GUI no CachyOS (janela real + busca → tabela/logs automatizada).
-* [x] Testar a porta padrão `8022`.
-* [ ] Testar outras portas e valores inválidos.
-* [ ] Testar redes sem dispositivos acessíveis.
-* [x] Testar timeout e cancelamento da busca.
-* [ ] Testar a atualização de resultados em tempo real.
-* [ ] Testar o painel de logs.
-* [ ] Testar a conexão com o Termux.
-* [ ] Reiniciar o telefone e verificar a descoberta do novo IP.
-* [ ] Testar várias sessões SSH simultâneas.
-* [ ] Fechar a GUI durante uma sessão ativa.
-* [ ] Confirmar que as sessões abertas continuam funcionando.
-* [ ] Verificar o encerramento das tarefas de scanner.
-* [x] Testar códigos de saída da CLI.
-
-## 11. Fase 8 — Documentação e distribuição
-
-* [x] Criar o README com instalação, arquitetura e exemplos (inicial).
-* [x] Criar o relatório de desenvolvimento (`docs/RELATORIO-DESENVOLVIMENTO.md`).
-* [ ] Documentar os requisitos do sistema.
-* [ ] Incluir instruções para CachyOS/Arch Linux.
-* [ ] Documentar a instalação do OpenSSH e de um terminal compatível.
-* [ ] Explicar o uso da GUI e da CLI.
-* [ ] Documentar o funcionamento em servidores sem desktop.
-* [ ] Incluir instruções para diagnóstico.
-* [ ] Criar pontos de entrada instaláveis para `pyssh` e `pyssh-cli`.
-* [ ] Avaliar um arquivo `.desktop`.
-* [ ] Considerar empacotamento para outras distribuições Linux.
-
-## 12. Critérios de conclusão do MVP
-
-1. O núcleo funcionar independentemente das interfaces.
-2. A CLI localizar dispositivos com portas abertas sem exigir desktop.
-3. A GUI oferecer busca, resultados e painel de logs.
-4. A porta `8022` for padrão e editável.
-5. Ambas as interfaces apresentarem erros úteis.
-6. O usuário puder iniciar uma conexão SSH manualmente autenticada.
-7. Fechar a GUI não encerrar sessões abertas nos terminais independentes.
-8. A CLI funcionar em ambientes sem Tkinter.
-9. O projeto encontrar o telefone após uma mudança de IP.
-10. A aplicação não deixar scanners ou tarefas auxiliares executando após o
-    encerramento.
-
-## 13. Melhorias futuras
-
-* Histórico de dispositivos encontrados.
-* Favoritos para dispositivos conhecidos.
-* Exportação de logs.
-* Configuração avançada de timeout e concorrência.
-* Descoberta por mDNS/Avahi.
-* Integração com perfis SSH.
-* Empacotamento para outras distribuições.
-
-## 14. Ordem recomendada de implementação
-
-1. ✅ Estrutura do projeto e núcleo compartilhado.
-2. ✅ Identificação de rede e scanner TCP.
-3. ✅ `pyssh-cli` funcional.
-4. ✅ Testes do núcleo e da CLI.
-5. Interface gráfica.
-6. Painel de logs.
-7. Sessões SSH independentes.
-8. Testes de encerramento e uso de recursos.
-9. Documentação e distribuição.
-
-**Princípio central:** o `pyssh` será uma ferramenta temporária para
-descobrir dispositivos e iniciar conexões. Depois de aberta a sessão, o
-usuário poderá encerrar a interface gráfica para economizar recursos sem
-interromper o trabalho no terminal remoto.
+**Princípio do projeto:** manter o `pyssh` leve e modular, usando os recursos
+nativos do OpenSSH sempre que possível e arquivos locais simples para
+persistência.

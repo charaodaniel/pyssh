@@ -4,9 +4,10 @@ Ferramenta leve para Linux que localiza dispositivos com SSH na rede local
 (porta `8022` por padrão — Termux) e prepara conexões por interface gráfica ou
 terminal.
 
-> **Status:** Fases 1, 2 e 4 entregues — núcleo compartilhado, `pyssh-cli` e
-> interface gráfica (`pyssh`). A Fase 5 (sessões totalmente independentes) tem
-> a base pronta em `pyssh/terminal.py`. Veja [ROADMAP.md](ROADMAP.md), o
+> **Status:** Fases 1–9 praticamente entregues — núcleo compartilhado,
+> `pyssh-cli` completo (`scan`, `connect`, `connections`, `keys`, `history`),
+> interface gráfica em abas (`pyssh`), sessões independentes, 216 testes OK.
+> Veja [ROADMAP.md](ROADMAP.md), o
 > [relatório de desenvolvimento](docs/RELATORIO-DESENVOLVIMENTO.md) e o
 > [TODO](docs/TODO.md).
 
@@ -44,6 +45,10 @@ pyssh/
 │   ├── scanner.py       # varredura TCP, timeout, concorrência, cancelamento
 │   ├── ssh_client.py    # monta e executa a sessão OpenSSH
 │   ├── terminal.py      # detecta terminais e abre sessões independentes
+│   ├── connections.py   # CRUD de conexões salvas (JSON)
+│   ├── keys.py          # referências a chaves SSH + ssh-keygen
+│   ├── history.py       # histórico JSONL + filtros + exportação CSV
+│   ├── storage.py       # dirs XDG, JSON atômico, permissões restritas
 │   ├── gui.py           # janela Tkinter/ttk (só aqui há GUI)
 │   └── settings.py      # preferências compartilhadas, porta padrão 8022
 ├── cli.py               # pyssh-cli (linha de comando)
@@ -55,6 +60,21 @@ pyssh/
 ├── ROADMAP.md
 └── tests/
 ```
+
+### Armazenamento local
+
+Os dados ficam fora do código-fonte, em diretórios XDG com permissões
+restritas (diretórios `0700`, arquivos `0600`) e gravação atômica:
+
+```text
+~/.config/pyssh/connections.json   # conexões salvas
+~/.config/pyssh/keys.json          # referências a chaves (nunca as chaves)
+~/.local/share/pyssh/history.jsonl # histórico de atividades (com rotação)
+~/.pyssh-settings.json             # preferências (porta, terminal, última rede)
+```
+
+As chaves privadas **não** são copiadas — só o caminho é referenciado. O
+histórico nunca contém senhas, passphrases ou chaves.
 
 O núcleo **não importa** módulos da GUI. A aplicação gráfica e a CLI
 consumirão os mesmos módulos, evitando duplicação de lógica.
@@ -75,9 +95,11 @@ SSH** / **Copiar IP**, resultados em tabela (IP, hostname, porta, estado) e
 um painel de logs com horário e níveis (INFO/AVISO/ERRO), limpar e copiar.
 
 A varredura roda em thread própria e a interface nunca trava; fechar a
-janela cancela a busca. A conexão abre um terminal do sistema (kitty,
-konsole, xfce4-terminal, alacritty, gnome-terminal, urxvt ou xterm) em
-processo separado, então a sessão continua depois de fechar o `pyssh`.
+janela cancela a busca. A conexão abre o **terminal padrão do sistema**, detectado nesta ordem: `settings.terminal` (preferência gravada), a spec
+XDG (`xdg-terminal-exec`), `$TERMINAL`, `x-terminal-emulator` e por fim a
+lista conhecida (kitty, konsole, xfce4-terminal, alacritty, gnome-terminal,
+urxvt ou xterm) — em processo separado, então a sessão continua depois de
+fechar o `pyssh`.
 
 ### Tkinter ausente: alternativa sem sudo
 
@@ -158,6 +180,39 @@ Enter cancela; a sessão é aberta com o `ssh` do sistema em **seu próprio
 terminal**, com autenticação feita pelo usuário. Nenhuma senha é armazenada.
 Quando o stdin/stdout não é um terminal (pipe/script), a seleção é pulada.
 
+### Conexões salvas, chaves e histórico
+
+A partir da Fase 3–5, o `pyssh-cli` gerencia conexões, referências a chaves
+e um histórico de atividades (JSON Lines):
+
+```bash
+# Conexões salvas (CRUD)
+pyssh-cli connections add -n Termux -H 192.168.8.54 -p 8022 -u termux
+pyssh-cli connections list
+pyssh-cli connections edit Termux -u dev
+pyssh-cli connections duplicate Termux --name "Termux 2"
+pyssh-cli connections delete "Termux 2" --yes
+pyssh-cli connect Termux          # abre uma conexão salva pelo nome
+
+# Chaves SSH (referências; usa o ssh-keygen do sistema)
+pyssh-cli keys generate --type ed25519 --path ~/.ssh/id_ed25519 --name casa
+pyssh-cli keys list               # mostra tipo e impressão digital
+pyssh-cli keys add -n trabalho --path ~/.ssh/id_trabalho
+pyssh-cli keys delete casa --yes  # remove só a referência (arquivo fica)
+
+# Associar uma chave a uma conexão (o connect passa -i automaticamente)
+pyssh-cli connections add -n Casa -H 10.0.0.5 -k casa
+
+# Histórico de atividades
+pyssh-cli history list --limit 50
+pyssh-cli history list --event session_started --address 192.168.8
+pyssh-cli history export --format csv --output historico.csv
+pyssh-cli history clear --yes
+```
+
+A confirmação de exclusão (`delete`/`clear`) exige `--yes` quando o stdin
+não é um terminal (uso em scripts).
+
 ### Saídas
 
 * Resultados (tabela) → **stdout**; progresso, avisos e erros → **stderr**.
@@ -179,12 +234,13 @@ Quando o stdin/stdout não é um terminal (pipe/script), a seleção é pulada.
 ## Testes
 
 ```bash
-python3 -m unittest discover -s tests -t .   # 89 testes, ~5 s
+python3 -m unittest discover -s tests -t .   # 216 testes
 ```
 
 Os testes usam apenas a biblioteca padrão (`unittest`) e não dependem de
 Tkinter, rede externa nem de privilégios: as portas abertas são simuladas
-com um servidor TCP local.
+com um servidor TCP local. A geração de chaves usa o `ssh-keygen` real em
+um diretório temporário (com `skipUnless` quando ele não existe).
 
 ## Termux
 

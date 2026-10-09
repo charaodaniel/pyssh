@@ -8,13 +8,16 @@ Este módulo não importa nenhum módulo de interface gráfica.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from typing import List, Optional, Sequence
 
 from .ssh_client import SSHError
 
-# Ordem = preferência. Cada entrada usa o comando base + o comando ssh.
+# Ordem = preferência da busca por detecção. Cada entrada usa o comando base
+# + o comando ssh. O terminal padrão do sistema tem prioridade sobre esta
+# lista (ver detect_system_terminal).
 TERMINALS = (
     ("kitty", ["kitty", "-e"]),
     ("konsole", ["konsole", "-e"]),
@@ -24,6 +27,11 @@ TERMINALS = (
     ("urxvt", ["urxvt", "-e"]),
     ("xterm", ["xterm", "-e"]),
 )
+
+# Argumento usado quando o terminal não está na tabela: convenção xterm
+# (a maioria dos emuladores aceita ``-e``; os conhecidos têm entrada na
+# tabela e usam o argumento próprio, ex.: gnome-terminal usa ``--``).
+DEFAULT_EXEC_ARG = "-e"
 
 
 # Sessões iniciadas: mantidas referenciadas até o programa terminar, para o
@@ -35,14 +43,68 @@ class NoTerminalFound(SSHError):
     """Nenhum emulador de terminal compatível foi encontrado no sistema."""
 
 
+def exec_args_for(executable: str) -> List[str]:
+    """Argumento de execução do terminal ``executable`` (ex.: ``["-e"]``).
+
+    Usa a entrada da tabela :data:`TERMINALS` quando o nome é conhecido;
+    para terminais desconhecidos devolve a convenção xterm (``-e``).
+    """
+    name = os.path.basename(executable)
+    for known, base in TERMINALS:
+        if known == name:
+            return list(base[1:])
+    return [DEFAULT_EXEC_ARG]
+
+
+def detect_system_terminal() -> Optional[List[str]]:
+    """Retorna o terminal padrão do sistema, ou ``None`` se não houver.
+
+    Ordem de detecção (prioridade decrescente):
+
+    1. ``xdg-terminal-exec`` — implementação de referência da proposta de
+       spec do freedesktop.org (configuração por desktop entries).
+    2. ``$TERMINAL`` — convenção usada por i3, sway e outros WM.
+    3. ``x-terminal-emulator`` — alternatives do Debian/Ubuntu.
+
+    O valor deve ser um único nome de programa (a convenção de ``$TERMINAL``).
+    """
+    # Spec XDG: recebe o comando diretamente (sem argumento de execução);
+    # ``--`` garante que os argumentos do ``ssh`` não sejam interpretados.
+    path = shutil.which("xdg-terminal-exec")
+    if path:
+        return [path, "--"]
+
+    env_terminal = os.environ.get("TERMINAL", "").strip()
+    if env_terminal:
+        path = shutil.which(env_terminal)
+        if path:
+            return [path] + exec_args_for(path)
+
+    path = shutil.which("x-terminal-emulator")
+    if path:
+        # O alternative é um link; o alvo real tem o nome correto na tabela.
+        return [path] + exec_args_for(os.path.realpath(path))
+
+    return None
+
+
 def find_terminal(configured: Optional[str] = None) -> Optional[List[str]]:
     """Retorna a base do comando do terminal, ou ``None`` se não houver.
 
-    ``configured`` permite forçar um terminal específico (ex.: ``kitty``).
+    ``configured`` força um terminal específico (ex.: ``kitty``), vindo de
+    ``settings.terminal``. Sem ``configured``, o terminal padrão do sistema
+    é detectado (spec XDG / ``$TERMINAL`` / ``x-terminal-emulator``) antes
+    de recorrer à lista :data:`TERMINALS`.
     """
     if configured:
         path = shutil.which(configured)
-        return [path] if path else None
+        if not path:
+            return None
+        return [path] + exec_args_for(path)
+
+    system = detect_system_terminal()
+    if system:
+        return system
 
     for _name, base in TERMINALS:
         path = shutil.which(base[0])
@@ -57,7 +119,8 @@ def require_terminal(configured: Optional[str] = None) -> List[str]:
     if not terminal:
         raise NoTerminalFound(
             "Nenhum terminal compatível encontrado. Instale kitty, konsole, "
-            "xfce4-terminal, alacritty, gnome-terminal ou xterm."
+            "xfce4-terminal, alacritty, gnome-terminal ou xterm, ou informe "
+            "um em settings.terminal."
         )
     return terminal
 
@@ -97,6 +160,8 @@ __all__ = [
     "NoTerminalFound",
     "TERMINALS",
     "build_terminal_command",
+    "detect_system_terminal",
+    "exec_args_for",
     "find_terminal",
     "require_terminal",
     "spawn_session",

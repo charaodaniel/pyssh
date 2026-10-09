@@ -97,7 +97,25 @@ class ScanWorkerTests(unittest.TestCase):
 
 @unittest.skipUnless(HAS_DISPLAY, "Tkinter ou display indisponível")
 class AppSmokeTests(unittest.TestCase):
-    """Montagem da janela — só com Tkinter funcional e display."""
+    """Montagem da janela — só com Tkinter funcional e display.
+
+    As preferências são isoladas num `Settings()` em memória para os testes
+    nunca lerem nem gravarem o `~/.pyssh-settings.json` real do usuário.
+    """
+
+    def setUp(self):
+        from unittest import mock
+
+        from pyssh.settings import Settings
+
+        self._settings_patch = mock.patch(
+            "pyssh.gui.load_settings", return_value=Settings()
+        )
+        self._save_patch = mock.patch("pyssh.gui.save_settings", return_value="/tmp/nul")
+        self._settings_patch.start()
+        self._save_patch.start()
+        self.addCleanup(self._settings_patch.stop)
+        self.addCleanup(self._save_patch.stop)
 
     def test_janela_abre_e_fecha(self):
         from pyssh.gui import App
@@ -142,6 +160,27 @@ class AppSmokeTests(unittest.TestCase):
             self.assertIn("dispositivo(s) com a porta", app.status_var.get())
         finally:
             app.destroy()
+
+    def test_prefill_prioriza_rede_detectada_sobre_a_antiga(self):
+        """A rede detectada vence `last_network` (bug: buscava só 1 IP)."""
+        from unittest import mock
+
+        from pyssh.gui import App
+        from pyssh.settings import Settings
+
+        # Preferência antiga aponta para um IP único; a detectada é a LAN real.
+        stale = Settings(last_network="127.0.0.1/32")
+        with mock.patch("pyssh.gui.load_settings", return_value=stale), mock.patch(
+            "pyssh.gui.save_settings", return_value="/tmp/nul"
+        ), mock.patch(
+            "pyssh.gui.guess_network",
+            return_value=mock.Mock(label="enp (192.168.8.50/24)", network="192.168.8.0/24"),
+        ):
+            app = App()
+            try:
+                self.assertEqual(app.network_var.get(), "192.168.8.0/24")
+            finally:
+                app.destroy()
 
     def test_porta_invalida_impede_a_busca(self):
         from unittest import mock
