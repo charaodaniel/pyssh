@@ -5,7 +5,8 @@ Ferramenta leve para Linux que localiza dispositivos com SSH na rede local
 terminal.
 
 > **Status:** Fases 1 e 2 concluídas — núcleo compartilhado e `pyssh-cli`.
-> A GUI (`pyssh`) ainda não foi implementada. Veja [ROADMAP.md](ROADMAP.md).
+> A GUI (`pyssh`) ainda não foi implementada. Veja [ROADMAP.md](ROADMAP.md)
+> e o [relatório de desenvolvimento](docs/RELATORIO-DESENVOLVIMENTO.md).
 
 ## Requisitos
 
@@ -20,11 +21,16 @@ terceiros.
 ## Instalação (desenvolvimento)
 
 ```bash
-git clone <repositorio>
+git clone git@github.com:charaodaniel/pyssh.git
 cd pyssh
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
+
+pyssh-cli --help                          # comando instalado no venv
+python -m unittest discover -s tests -t . # 89 testes
 ```
+
+O `.venv/` já é ignorado pelo Git. Para desativar: `deactivate`.
 
 ## Arquitetura
 
@@ -39,6 +45,8 @@ pyssh/
 ├── cli.py               # pyssh-cli (linha de comando)
 ├── main.py              # (Fase 4) interface gráfica
 ├── pyproject.toml
+├── docs/
+│   └── RELATORIO-DESENVOLVIMENTO.md
 ├── ROADMAP.md
 └── tests/
 ```
@@ -127,11 +135,12 @@ Quando o stdin/stdout não é um terminal (pipe/script), a seleção é pulada.
 ## Testes
 
 ```bash
-python3 -m unittest discover -s tests -t .
+python3 -m unittest discover -s tests -t .   # 89 testes, ~5 s
 ```
 
 Os testes usam apenas a biblioteca padrão (`unittest`) e não dependem de
-Tkinter, rede externa nem de privilégios.
+Tkinter, rede externa nem de privilégios: as portas abertas são simuladas
+com um servidor TCP local.
 
 ## Termux
 
@@ -142,6 +151,13 @@ sshd
 ```
 
 Depois execute o `pyssh` na máquina desktop para localizar o dispositivo.
+
+## Documentação
+
+* [ROADMAP.md](ROADMAP.md) — fases, pendências e critérios de conclusão.
+* [docs/RELATORIO-DESENVOLVIMENTO.md](docs/RELATORIO-DESENVOLVIMENTO.md) —
+  relatório técnico: decisões de projeto, verificações executadas, bugs
+  corrigidos e próximos passos.
 
 ## Licença
 

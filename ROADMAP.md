@@ -16,6 +16,8 @@
 | 7 | Testes | 🟡 parcial |
 | 8 | Documentação e distribuição | 🟡 parcial |
 
+Acompanhamento técnico: [docs/RELATORIO-DESENVOLVIMENTO.md](docs/RELATORIO-DESENVOLVIMENTO.md).
+
 ## 1. Objetivo
 
 O `pyssh` será desenvolvido em Python e terá duas interfaces:
@@ -58,16 +60,20 @@ pyssh/
 │   ├── scanner.py
 │   ├── ssh_client.py
 │   └── settings.py
-├── main.py
 ├── cli.py
+├── main.py              # (Fase 4)
 ├── pyproject.toml
 ├── README.md
 ├── ROADMAP.md
+├── docs/
+│   └── RELATORIO-DESENVOLVIMENTO.md
 ├── .gitignore
 └── tests/
+    ├── test_cli.py
     ├── test_network.py
     ├── test_scanner.py
-    └── test_settings.py
+    ├── test_settings.py
+    └── test_ssh_client.py
 ```
 
 ### Responsabilidades
@@ -288,6 +294,7 @@ encerrar o `pyssh` e continuar trabalhando no terminal independente.
 ## 11. Fase 8 — Documentação e distribuição
 
 * [x] Criar o README com instalação, arquitetura e exemplos (inicial).
+* [x] Criar o relatório de desenvolvimento (`docs/RELATORIO-DESENVOLVIMENTO.md`).
 * [ ] Documentar os requisitos do sistema.
 * [ ] Incluir instruções para CachyOS/Arch Linux.
 * [ ] Documentar a instalação do OpenSSH e de um terminal compatível.
