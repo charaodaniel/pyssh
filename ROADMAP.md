@@ -17,6 +17,7 @@
 | 8 | Documentação e distribuição | 🟡 parcial |
 
 Acompanhamento técnico: [docs/RELATORIO-DESENVOLVIMENTO.md](docs/RELATORIO-DESENVOLVIMENTO.md).
+Lista do que falta: [docs/TODO.md](docs/TODO.md).
 
 ## 1. Objetivo
 
@@ -66,7 +67,8 @@ pyssh/
 ├── README.md
 ├── ROADMAP.md
 ├── docs/
-│   └── RELATORIO-DESENVOLVIMENTO.md
+│   ├── RELATORIO-DESENVOLVIMENTO.md
+│   └── TODO.md
 ├── .gitignore
 └── tests/
     ├── test_cli.py

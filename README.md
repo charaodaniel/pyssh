@@ -46,7 +46,8 @@ pyssh/
 ├── main.py              # (Fase 4) interface gráfica
 ├── pyproject.toml
 ├── docs/
-│   └── RELATORIO-DESENVOLVIMENTO.md
+│   ├── RELATORIO-DESENVOLVIMENTO.md
+│   └── TODO.md
 ├── ROADMAP.md
 └── tests/
 ```
@@ -155,6 +156,7 @@ Depois execute o `pyssh` na máquina desktop para localizar o dispositivo.
 ## Documentação
 
 * [ROADMAP.md](ROADMAP.md) — fases, pendências e critérios de conclusão.
+* [docs/TODO.md](docs/TODO.md) — lista priorizada do que falta fazer.
 * [docs/RELATORIO-DESENVOLVIMENTO.md](docs/RELATORIO-DESENVOLVIMENTO.md) —
   relatório técnico: decisões de projeto, verificações executadas, bugs
   corrigidos e próximos passos.
