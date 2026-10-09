@@ -10,7 +10,7 @@
 | 1 | Núcleo compartilhado | ✅ concluída |
 | 2 | `pyssh-cli` | ✅ concluída |
 | 3 | Scanner de rede (amadurecimento) | 🟡 parcial |
-| 4 | Interface gráfica (Tkinter/ttk) | 🟡 código pronto, falta validar |
+| 4 | Interface gráfica (Tkinter/ttk) | ✅ concluída |
 | 5 | Sessões SSH independentes | 🟡 base criada (`terminal.py`) |
 | 6 | Configurações e descoberta complementar | 🟡 parcial |
 | 7 | Testes | 🟡 parcial |
@@ -226,7 +226,9 @@ autenticação seja aceita.
 * [x] Criar o botão **Conectar via SSH**.
 * [x] Mostrar progresso sem congelar a interface (thread + fila + `after`).
 * [x] Exibir mensagens quando nenhum dispositivo for encontrado.
-* [ ] Validar a janela num display real (depende do pacote `tk`).
+* [x] Validar a janela num display real: `pyssh --selftest` saiu 0 e os
+      testes de GUI passaram abrindo a janela, rodando uma busca real e
+      conferindo tabela e logs.
 
 ### Painel de saída
 
@@ -278,9 +280,9 @@ encerrar o `pyssh` e continuar trabalhando no terminal independente.
 
 ## 10. Fase 7 — Testes
 
-* [x] Testar o núcleo sem Tkinter (110 testes, `unittest` da stdlib).
+* [x] Testar o núcleo sem Tkinter (112 testes, `unittest` da stdlib).
 * [x] Testar a CLI em ambiente sem desktop (testes sem Tkinter e sem tty).
-* [ ] Testar a GUI no CachyOS.
+* [x] Testar a GUI no CachyOS (janela real + busca → tabela/logs automatizada).
 * [x] Testar a porta padrão `8022`.
 * [ ] Testar outras portas e valores inválidos.
 * [ ] Testar redes sem dispositivos acessíveis.

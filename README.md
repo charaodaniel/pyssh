@@ -4,9 +4,11 @@ Ferramenta leve para Linux que localiza dispositivos com SSH na rede local
 (porta `8022` por padrão — Termux) e prepara conexões por interface gráfica ou
 terminal.
 
-> **Status:** Fases 1 e 2 concluídas — núcleo compartilhado e `pyssh-cli`.
-> A GUI (`pyssh`) ainda não foi implementada. Veja [ROADMAP.md](ROADMAP.md)
-> e o [relatório de desenvolvimento](docs/RELATORIO-DESENVOLVIMENTO.md).
+> **Status:** Fases 1, 2 e 4 entregues — núcleo compartilhado, `pyssh-cli` e
+> interface gráfica (`pyssh`). A Fase 5 (sessões totalmente independentes) tem
+> a base pronta em `pyssh/terminal.py`. Veja [ROADMAP.md](ROADMAP.md), o
+> [relatório de desenvolvimento](docs/RELATORIO-DESENVOLVIMENTO.md) e o
+> [TODO](docs/TODO.md).
 
 ## Requisitos
 
@@ -76,6 +78,25 @@ A varredura roda em thread própria e a interface nunca trava; fechar a
 janela cancela a busca. A conexão abre um terminal do sistema (kitty,
 konsole, xfce4-terminal, alacritty, gnome-terminal, urxvt ou xterm) em
 processo separado, então a sessão continua depois de fechar o `pyssh`.
+
+### Tkinter ausente: alternativa sem sudo
+
+Se o `pacman` não estiver disponível (ou preferir não instalar no sistema),
+e extraia o pacote `tk` num prefixo só seu:
+
+```bash
+mkdir -p ~/.local/opt/tk
+curl -o /tmp/tk.pkg.tar.zst https://geo.mirror.pkgbuild.com/extra/os/x86_64/tk-8.6.16-1-x86_64.pkg.tar.zst
+tar --zstd -xf /tmp/tk.pkg.tar.zst -C ~/.local/opt/tk
+
+export LD_LIBRARY_PATH="$HOME/.local/opt/tk/usr/lib"
+export TK_LIBRARY="$HOME/.local/opt/tk/usr/lib/tk8.6"
+pyssh --selftest   # deve sair com código 0
+pyssh              # abre a janela
+```
+
+A versão do pacote deve acompanhar a do `tcl` instalado (`pacman -Q tcl`).
+A forma definitiva continua sendo `sudo pacman -S --needed tk`.
 
 ## Uso do núcleo
 

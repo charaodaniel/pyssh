@@ -8,8 +8,10 @@
 
 * [x] Fazer o `git push` dos commits locais — concluído em 09/10/2026
       (`origin/main` em `f070e50`).
-* [ ] Instalar o pacote `tk` (Arch: `sudo pacman -S tk`) — sem ele o Tkinter
-      não carrega e a GUI fica inviável de testar (`libtk8.6.so` ausente).
+* [x] Instalar o pacote `tk` — **contornado**: validado em prefixo local
+      `~/.local/opt/tk` (pacote extraído do repositório `extra` +
+      `LD_LIBRARY_PATH`/`TK_LIBRARY`); instalação definitiva continua
+      pendente com `sudo pacman -S --needed tk`.
 * [ ] Criar o `LICENSE` (MIT) — o README já declara MIT.
 
 ## Fase 4 — Interface gráfica (código pronto, falta validar com `tk`)
@@ -28,7 +30,9 @@
       sem bloquear a interface (fila entre threads e `after()`).
 * [x] Mensagem clara quando nenhum dispositivo for encontrado.
 * [x] Fechar a janela cancela a busca e encerra as tarefas auxiliares.
-* [ ] Abrir a janela num display real e testar busca/conexão manualmente.
+* [x] Abrir a janela num display real e testar busca/conexão manualmente
+      (`pyssh --selftest` saiu 0 e os testes de GUI passaram com display:
+      busca → linha na tabela → logs; resta o teste manual de conexão).
 
 ## Fase 5 — Sessões SSH independentes
 
