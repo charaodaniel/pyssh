@@ -6,8 +6,8 @@
 
 ## Ações imediatas
 
-* [ ] Fazer o `git push` dos commits locais ainda não publicados
-      (`08aeb1a` núcleo+CLI, `3f1f03e` documentação).
+* [x] Fazer o `git push` dos commits locais — concluído em 09/10/2026
+      (`origin/main` em `f070e50`).
 * [ ] Instalar o pacote `tk` (Arch: `sudo pacman -S tk`) — sem ele o Tkinter
       não carrega e a GUI fica inviável de testar (`libtk8.6.so` ausente).
 * [ ] Criar o `LICENSE` (MIT) — o README já declara MIT.
