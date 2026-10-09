@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyssh"
+version = "0.1.0"
+description = "Localiza dispositivos com SSH na rede local e inicia conexões por GUI ou terminal."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "daniel" }]
+classifiers = [
+    "Environment :: X11 Applications",
+    "Environment :: Console",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Networking",
+]
+# Núcleo e CLI não dependem de nenhuma biblioteca de terceiros.
+dependencies = []
+
+[project.scripts]
+pyssh-cli = "cli:main"
+# Habilitado na Fase 4 (interface gráfica).
+# pyssh = "main:main"
+
+[project.optional-dependencies]
+dev = []
+
+[tool.setuptools]
+packages = ["pyssh"]
+py-modules = ["cli"]
