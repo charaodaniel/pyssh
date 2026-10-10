@@ -35,7 +35,7 @@ Ambas utilizarão o mesmo núcleo de rede, conexão, armazenamento e histórico.
 * `iproute2` para identificação de redes
 * OpenSSH para autenticação
 * JSON para configurações e conexões
-* CSV para exportação de histórico
+* CSV e JSON para exportação de histórico
 * `pytest` para testes automatizados
 
 > **Nota desta entrega:** a suíte usa `unittest` da biblioteca padrão (os
@@ -57,7 +57,7 @@ pyssh/
 │   ├── terminal.py        # terminais do sistema e sessões desanexadas
 │   ├── connections.py     # CRUD de conexões salvas
 │   ├── keys.py            # referências a chaves SSH
-│   ├── history.py         # histórico JSONL + exportação CSV
+│   ├── history.py         # histórico JSONL + exportação CSV/JSON
 │   ├── storage.py         # dirs XDG, JSON atômico, permissões
 │   ├── gui.py             # janela Tkinter/ttk
 │   └── settings.py
@@ -244,7 +244,7 @@ confiável (o registro final usa o código de saída do próprio `ssh`).
 
 ```bash
 pyssh-cli history list [--limit 50] [--event T] [--address H] [--status E]
-pyssh-cli history export --format csv|jsonl [--output ARQUIVO]
+pyssh-cli history export --format csv|json|jsonl [--output ARQUIVO]
 pyssh-cli history clear [--yes]
 ```
 

@@ -638,7 +638,7 @@ if TK_AVAILABLE:
             bar = ttk.Frame(tab)
             bar.pack(fill="x", pady=(0, 6))
             ttk.Button(bar, text="Atualizar", command=self.refresh_history).pack(side="left")
-            ttk.Button(bar, text="Exportar CSV", command=self.history_export).pack(side="left", padx=6)
+            ttk.Button(bar, text="Exportar…", command=self.history_export).pack(side="left", padx=6)
             ttk.Button(bar, text="Limpar", command=self.history_clear).pack(side="left")
             ttk.Label(bar, text="  Evento:").pack(side="left")
             self.hist_event_var = tk.StringVar()
@@ -1265,11 +1265,13 @@ if TK_AVAILABLE:
                 return
             destination = filedialog.asksaveasfilename(
                 parent=self, title="Exportar histórico",
-                defaultextension=".csv", filetypes=[("CSV", "*.csv"), ("JSON Lines", "*.jsonl")],
+                defaultextension=".csv",
+                filetypes=[("CSV", "*.csv"), ("JSON", "*.json"), ("JSON Lines", "*.jsonl")],
             )
             if not destination:
                 return
-            fmt = "jsonl" if destination.endswith(".jsonl") else "csv"
+            ext = destination.rsplit(".", 1)[-1].lower() if "." in destination else "csv"
+            fmt = ext if ext in ("csv", "json", "jsonl") else "csv"
             try:
                 history.export(rows, destination, fmt)
             except history.HistoryError as exc:

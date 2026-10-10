@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import os
 import shutil
 import tempfile
@@ -503,6 +504,19 @@ class NewCommandsTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(destino))
         with open(destino, encoding="utf-8") as fh:
             self.assertIn("scan_started", fh.read())
+
+    def test_history_export_json(self):
+        from pyssh import history
+
+        history.record("scan_started", address="192.168.8.0/24", port=8022, status="ok")
+        destino = os.path.join(self.tmp.name, "out.json")
+        code, out, _ = run(["history", "export", "-o", destino, "-f", "json"])
+        self.assertEqual(code, 0)
+        self.assertIn("Exportado", out)
+        with open(destino, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        self.assertIsInstance(payload, list)
+        self.assertTrue(any(item["event"] == "scan_started" for item in payload))
 
     def test_history_export_sem_eventos(self):
         code, _, err = run(["history", "export"])

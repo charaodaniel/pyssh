@@ -1,6 +1,6 @@
 # Maintainer: daniel <charaodaniel@users.noreply.github.com>
 pkgname=pyssh
-pkgver=0.1.0
+pkgver=0.0.2
 pkgrel=1
 pkgdesc='Localiza dispositivos SSH na rede local e abre sessões em terminal'
 arch=('any')

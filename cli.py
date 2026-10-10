@@ -215,7 +215,7 @@ def _build_history_parser(sub) -> None:
     hexp = hist_sub.add_parser("export", help="exporta o histórico (ou uma seleção)")
     add_filters(hexp)
     hexp.add_argument(
-        "--format", "-f", choices=("csv", "jsonl"), default="csv",
+        "--format", "-f", choices=("csv", "json", "jsonl"), default="csv",
         help="formato de saída (padrão: csv)",
     )
     hexp.add_argument("--output", "-o", metavar="ARQUIVO", help="arquivo de destino")

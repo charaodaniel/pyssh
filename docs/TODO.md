@@ -1,8 +1,9 @@
 # TODO — pyssh
 
-> Pendências priorizadas. Estado em **09/10/2026**: Fases 1–9 praticamente
-> entregues (núcleo + `pyssh-cli` completo + GUI em abas + conexões/chaves/
-> histórico, **216 testes OK**). Detalhes em [ROADMAP.md](../ROADMAP.md) e
+> Pendências priorizadas. Estado em **10/10/2026**: **v0.0.2** — correção
+> da exportação CSV da GUI, formato JSON, empacotamento e push ao GitHub
+> (**240 testes OK**). Antes: Fases 1–9 (núcleo + `pyssh-cli` + GUI em abas
+> + conexões/chaves/histórico). Detalhes em [ROADMAP.md](../ROADMAP.md) e
 > [RELATORIO-DESENVOLVIMENTO.md](RELATORIO-DESENVOLVIMENTO.md).
 
 ## Ações imediatas
@@ -11,8 +12,20 @@
 * [x] Instalar o pacote `tk` — contornado: validado em prefixo local
       `~/.local/opt/tk`; instalação definitiva continua pendente
       com `sudo pacman -S --needed tk`.
-* [ ] Criar o `LICENSE` (MIT) — o README já declara MIT.
-* [ ] Fazer `git push` desta entrega (conexões/chaves/histórico/GUI).
+* [x] Criar o `LICENSE` (MIT) — criado em 10/10/2026 (empacotamento).
+* [x] Fazer `git push` desta entrega — feito em 10/10/2026 (`fe950c2`).
+
+## Entrega 10/10/2026 — v0.0.2
+
+* [x] Bug: `history.events(limit=0)` devolvia vazio — a exportação CSV da GUI
+      logava "Nenhum evento para exportar" mesmo com eventos; corrigido
+      (`0` = sem limite, como a CLI já documentava) com teste de regressão.
+* [x] Exportação em **JSON** (array indentado) no módulo, na CLI
+      (`--format json`) e na GUI (CSV/JSON/JSON Lines; a extensão escolhida
+      decide o formato; botão renomeado para "Exportar…").
+* [x] Versão **0.0.2** em `pyproject.toml`, `pyssh/__init__.py`, PKGBUILD e
+      spec do RPM.
+* [x] Empacotamento (portátil/AppImage/.deb/Arch/RPM/CI) publicado no GitHub.
 
 ## Entregue nesta rodada (novo roadmap)
 
@@ -24,7 +37,7 @@
       impressão digital, alerta de permissões; remover referência preserva o
       arquivo.
 * [x] `pyssh/history.py` — histórico JSONL com filtros (evento, endereço,
-      estado, data, conexão), exportação CSV/JSONL, rotação (1 MiB, 3
+      estado, data, conexão), exportação CSV/JSON/JSONL, rotação (1 MiB, 3
       rotações) e limpeza.
 * [x] CLI: `connections`, `keys`, `history` + `connect NOME` (resolve conexão
       salva e injeta `-i` da chave associada).

@@ -195,7 +195,8 @@ def events(
     * ``address`` — correspondência por substring, sem diferenciar maiúsculas;
     * ``since`` / ``until`` — limites de data/hora comparados
       lexicograficamente com o ISO 8601 (``AAAA-MM-DD`` funciona);
-    * ``limit`` — mantém apenas os N registros mais recentes após o filtro.
+    * ``limit`` — mantém apenas os N registros mais recentes após o filtro;
+      ``0`` ou ``None`` significam sem limite (todos).
     """
     target = path or history_path()
     records: List[Dict[str, Any]] = []
@@ -225,8 +226,11 @@ def events(
         return True
 
     filtered = [item for item in records if matches(item)]
-    if limit is not None and limit >= 0:
-        filtered = filtered[-limit:] if limit else []
+    if limit is not None and limit > 0:
+        # 0 = sem limite (documentado na CLI como "0 = todos"). O antigo
+        # `filtered[-limit:] if limit else []` retornava vazio com 0 e
+        # fazia a exportação da GUI achar que não havia eventos.
+        filtered = filtered[-limit:]
     return filtered
 
 
@@ -235,7 +239,7 @@ def export(
     destination: str,
     fmt: str = "csv",
 ) -> str:
-    """Exporta seleção do histórico para ``csv`` ou ``jsonl``.
+    """Exporta seleção do histórico para ``csv``, ``json`` ou ``jsonl``.
 
     O destino é um arquivo novo de exportação (nunca o histórico original).
     Levanta :class:`HistoryError` para formato desconhecido ou falha de escrita.
@@ -243,6 +247,19 @@ def export(
     fmt = (fmt or "").lower()
     if fmt == "csv":
         return write_csv(destination, rows, FIELDS)
+    if fmt == "json":
+        try:
+            import json
+
+            directory = os.path.dirname(destination) or "."
+            os.makedirs(directory, exist_ok=True)
+            payload = [{key: row.get(key) for key in FIELDS} for row in rows]
+            with open(destination, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2, ensure_ascii=False)
+                handle.write("\n")
+        except (OSError, ValueError) as exc:
+            raise HistoryError(f"Falha ao exportar {destination}: {exc}") from None
+        return destination
     if fmt == "jsonl":
         try:
             import json
@@ -256,7 +273,7 @@ def export(
         except (OSError, ValueError) as exc:
             raise HistoryError(f"Falha ao exportar {destination}: {exc}") from None
         return destination
-    raise HistoryError(f"Formato de exportação não suportado: {fmt!r} (use csv ou jsonl).")
+    raise HistoryError(f"Formato de exportação não suportado: {fmt!r} (use csv, json ou jsonl).")
 
 
 def clear(path: Optional[str] = None) -> int:

@@ -47,7 +47,7 @@ pyssh/
 │   ├── terminal.py      # detecta terminais e abre sessões independentes
 │   ├── connections.py   # CRUD de conexões salvas (JSON)
 │   ├── keys.py          # referências a chaves SSH + ssh-keygen
-│   ├── history.py       # histórico JSONL + filtros + exportação CSV
+│   ├── history.py       # histórico JSONL + filtros + exportação CSV/JSON
 │   ├── storage.py       # dirs XDG, JSON atômico, permissões restritas
 │   ├── gui.py           # janela Tkinter/ttk (só aqui há GUI)
 │   └── settings.py      # preferências compartilhadas, porta padrão 8022
@@ -207,6 +207,7 @@ pyssh-cli connections add -n Casa -H 10.0.0.5 -k casa
 pyssh-cli history list --limit 50
 pyssh-cli history list --event session_started --address 192.168.8
 pyssh-cli history export --format csv --output historico.csv
+pyssh-cli history export --format json --output historico.json
 pyssh-cli history clear --yes
 ```
 

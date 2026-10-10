@@ -1,5 +1,5 @@
 Name:           pyssh
-Version:        0.1.0
+Version:        0.0.2
 Release:        1%{?dist}
 Summary:        Localiza dispositivos SSH na rede local e abre sessões
 License:        MIT

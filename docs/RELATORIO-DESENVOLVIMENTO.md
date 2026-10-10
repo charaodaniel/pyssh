@@ -1,13 +1,12 @@
 # Relatório de Desenvolvimento — pyssh
 
-> Documento de acompanhamento técnico. Atualizado em **09/10/2026**.
+> Documento de acompanhamento técnico. Atualizado em **10/10/2026**.
 > Visão de produto e pendências: [ROADMAP.md](../ROADMAP.md).
 > Uso e instalação: [README.md](../README.md).
 
-> **Entrega mais recente (abaixo, seção 9):** CRUD de conexões, referências
-> a chaves SSH, histórico JSONL com exportação CSV, integração na CLI e GUI
-> (abas Conexões/Chaves/Histórico) e terminal padrão do sistema.
-> 216 testes OK.
+> **Entrega mais recente (abaixo, seção 10):** correção da exportação CSV
+> da GUI (causa raiz em `history.events(limit=0)`), novo formato JSON no
+> módulo/CLI/GUI e versão **0.0.2**. 240 testes OK.
 
 ## 1. Resumo
 
@@ -304,3 +303,40 @@ corrompidos no load.
 * A suíte usa `unittest` (stdlib); `pytest` roda os mesmos testes, mas é
   dependência opcional de desenvolvimento (não instalada por padrão, para
   manter o runtime sem terceiros).
+
+---
+
+## 10. Entrega — correção da exportação CSV, formato JSON e v0.0.2 (10/10/2026)
+
+### 10.1 Bug: a exportação CSV da GUI não funcionava
+
+Causa raiz em `history.events(limit=0)`: o corte antigo
+(`filtered[-limit:] if limit else []`) devolvia **vazio** para `limit=0`,
+porem `0 = todos` é o comportamento documentado na própria CLI. A CLI
+mascarava o problema com `args.limit or None`; a GUI chamava `events(limit=0)`
+direto e logava "Nenhum evento para exportar" mesmo com histórico cheio.
+
+Correção no módulo (não no chamador): `limit > 0` aplica o corte; `0`/`None`
+são sem limite. Teste de regressão: `test_limit_zero_significa_todos`.
+
+### 10.2 Formato JSON
+
+* `history.export(rows, destino, "json")` grava um **array JSON indentado**
+  com os 7 campos de cada evento.
+* CLI: `pyssh-cli history export --format json` (choices `csv|json|jsonl`).
+* GUI: diálogo oferece CSV, JSON e JSON Lines — a extensão escolhida decide
+  o formato; o botão passou a se chamar "Exportar…".
+* CSV continua com cabeçalho e o mesmo layout (testado por leitura com
+  `csv.DictReader`).
+
+### 10.3 Versão e verificações (10/10/2026)
+
+Versão **0.0.2** em `pyproject.toml`, `pyssh/__init__.py`, PKGBUILD e spec do
+RPM (os scripts de build leem a versão do `pyproject.toml`).
+
+| Verificação | Resultado |
+| --- | --- |
+| `python3 -m unittest discover -s tests -t .` | **240 testes OK** (236 + 4 novos) |
+| Novos testes | JSON (módulo), regressão `limit=0`, CLI `--format json`, e2e da GUI (diálogo → CSV e JSON gravados) |
+| Exportação CSV real (CLI) | 13 eventos, cabeçalho + linhas corretas |
+| Documentação | README, ROADMAP, TODO e este relatório atualizados |

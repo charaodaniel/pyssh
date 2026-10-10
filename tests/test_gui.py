@@ -331,6 +331,50 @@ class AppSmokeTests(unittest.TestCase):
         finally:
             app.destroy()
 
+    def test_exportar_historico_grava_csv_e_json(self):
+        """Diálogo de exportação grava o arquivo escolhido (regressão do CSV)."""
+        import json
+        import os
+        import shutil
+        import tempfile
+        from unittest import mock
+
+        from pyssh import history as hist
+        from pyssh.gui import App
+
+        app = App()
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        fake = [{
+            "timestamp": "2026-10-10T10:00:00-03:00", "event": "scan_started",
+            "connection_id": None, "address": "127.0.0.1/32", "port": 8022,
+            "status": "ok", "message": "varredura de teste",
+        }]
+        try:
+            with mock.patch.object(hist, "events", return_value=fake):
+                # CSV (extensão padrão)
+                csv_path = os.path.join(tmp, "hist.csv")
+                with mock.patch("tkinter.filedialog.asksaveasfilename",
+                                return_value=csv_path):
+                    app.history_export()
+                self.assertTrue(os.path.isfile(csv_path), "CSV não foi gravado")
+                with open(csv_path, encoding="utf-8") as fh:
+                    linhas = fh.read().splitlines()
+                self.assertTrue(linhas[0].startswith("timestamp,event"))
+                self.assertIn("scan_started", linhas[1])
+
+                # JSON (extensão .json decide o formato)
+                json_path = os.path.join(tmp, "hist.json")
+                with mock.patch("tkinter.filedialog.asksaveasfilename",
+                                return_value=json_path):
+                    app.history_export()
+                self.assertTrue(os.path.isfile(json_path), "JSON não foi gravado")
+                with open(json_path, encoding="utf-8") as fh:
+                    payload = json.load(fh)
+                self.assertEqual(payload[0]["event"], "scan_started")
+        finally:
+            app.destroy()
+
     def test_icone_da_janela_carregado(self):
         """O PNG da raiz é carregado e definido como ícone da janela."""
         from pyssh.gui import App, load_icon

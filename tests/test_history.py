@@ -92,6 +92,14 @@ class FilterTests(BaseHistory):
         history.record("ok2", path=self.path)
         self.assertEqual(len(history.events(path=self.path)), 2)
 
+    def test_limit_zero_significa_todos(self):
+        """Regressão: limit=0 retornava vazio e quebrava a exportação da GUI."""
+        for i in range(3):
+            history.record(f"e{i}", path=self.path)
+        self.assertEqual(len(history.events(limit=0, path=self.path)), 3)
+        self.assertEqual(len(history.events(limit=None, path=self.path)), 3)
+        self.assertEqual(len(history.events(limit=2, path=self.path)), 2)
+
 
 class ExportTests(BaseHistory):
     def _seed(self):
@@ -115,6 +123,17 @@ class ExportTests(BaseHistory):
         with open(out, encoding="utf-8") as fh:
             lines = [json.loads(line) for line in fh if line.strip()]
         self.assertEqual(lines[0]["event"], "scan_started")
+
+    def test_export_json(self):
+        self._seed()
+        rows = history.events(path=self.path)
+        out = os.path.join(self.tmp.name, "out.json")
+        history.export(rows, out, "json")
+        with open(out, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        self.assertIsInstance(payload, list)
+        self.assertEqual(payload[0]["event"], "scan_started")
+        self.assertEqual(payload[0]["port"], 8022)
 
     def test_export_formato_invalido(self):
         self._seed()
