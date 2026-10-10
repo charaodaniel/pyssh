@@ -498,6 +498,68 @@ if TK_AVAILABLE:
             if self._wm_small is not None:
                 ttk.Label(bar, image=self._wm_small).pack(side="right")
 
+        # ---------------------------------------------------------------- #
+        # Menu de contexto (botão direito) nas tabelas
+        # ---------------------------------------------------------------- #
+
+        def _make_context_menu(self, items: List[tuple]) -> tk.Menu:
+            """Menu de contexto com a paleta Mocha; ``"-"`` vira separador."""
+            c = CATPPUCCIN_MOCHA
+            menu = tk.Menu(
+                self,
+                tearoff=0,
+                background=c["surface0"],
+                foreground=c["text"],
+                activebackground=c["blue"],
+                activeforeground=c["base"],
+                disabledforeground=c["overlay0"],
+                borderwidth=1,
+                relief="flat",
+            )
+            for item in items:
+                if item == "-":
+                    menu.add_separator()
+                else:
+                    label, command = item
+                    menu.add_command(label=label, command=command)
+            return menu
+
+        def _bind_context(self, tree: ttk.Treeview, menu: tk.Menu) -> None:
+            """Anexa o menu: botão direito, Ctrl+clique, Shift+F10 e tecla Menu."""
+            show = lambda event: self._popup_context(event, tree, menu)  # noqa: E731
+            tree.bind("<Button-3>", show)
+            tree.bind("<Control-Button-1>", show)
+            tree.bind("<Shift-F10>", lambda _e: self._popup_context_key(tree, menu))
+            tree.bind("<Menu>", lambda _e: self._popup_context_key(tree, menu))
+
+        def _popup_context(self, event, tree: ttk.Treeview, menu: tk.Menu) -> bool:
+            """Seleciona a linha sob o cursor e abre o menu (False se vazio)."""
+            row = tree.identify_row(event.y)
+            if row:
+                tree.selection_set(row)
+            if not tree.selection():
+                return False
+            return self._post_context(menu, event.x_root, event.y_root)
+
+        def _popup_context_key(self, tree: ttk.Treeview, menu: tk.Menu) -> bool:
+            """Abre o menu na linha selecionada (teclado: Shift+F10/Menu)."""
+            selection = tree.selection()
+            if not selection:
+                return False
+            bbox = tree.bbox(selection[0])
+            if not bbox:
+                return False
+            x = tree.winfo_rootx() + bbox[0] + bbox[2] // 2
+            y = tree.winfo_rooty() + bbox[1] + bbox[3]
+            return self._post_context(menu, x, y)
+
+        def _post_context(self, menu: tk.Menu, x: int, y: int) -> bool:
+            try:
+                menu.tk_popup(x, y)
+            finally:
+                menu.grab_release()  # não deixa o grab preso se o post falhar
+            return True
+
         def _build_discovery_tab(self) -> None:
             tab = ttk.Frame(self.notebook, padding=(10, 10, 10, 6))
             self.notebook.add(tab, text="Descoberta")
@@ -558,6 +620,14 @@ if TK_AVAILABLE:
             box.rowconfigure(0, weight=1)
             box.columnconfigure(0, weight=1)
 
+            self.ctx_results = self._make_context_menu([
+                ("Conectar", self.connect),
+                ("Copiar IP", self.copy_ip),
+                "-",
+                ("Propriedades", self.result_properties),
+            ])
+            self._bind_context(self.tree, self.ctx_results)
+
         def _build_logs(self) -> None:
             self.log_panel = LogPanel(self)
             self.log_panel.pack(fill="both", expand=False, padx=10, pady=(8, 0))
@@ -596,6 +666,16 @@ if TK_AVAILABLE:
             self.conn_tree.pack(side="left", fill="both", expand=True)
             scroll.pack(side="left", fill="y")
             self.conn_tree.bind("<Double-1>", lambda _e: self.connection_connect())
+            self.ctx_connections = self._make_context_menu([
+                ("Conectar", self.connection_connect),
+                ("Propriedades", self.connection_properties),
+                "-",
+                ("Editar", self.connection_edit),
+                ("Duplicar", self.connection_duplicate),
+                "-",
+                ("Excluir", self.connection_delete),
+            ])
+            self._bind_context(self.conn_tree, self.ctx_connections)
 
         # ---------------------------------------------------------------- #
         # Aba: Chaves SSH
@@ -626,6 +706,13 @@ if TK_AVAILABLE:
             self.key_tree.configure(yscrollcommand=scroll.set)
             self.key_tree.pack(side="left", fill="both", expand=True)
             scroll.pack(side="left", fill="y")
+            self.ctx_keys = self._make_context_menu([
+                ("Ver chave", self.key_show),
+                ("Editar", self.key_edit),
+                "-",
+                ("Remover", self.key_delete),
+            ])
+            self._bind_context(self.key_tree, self.ctx_keys)
 
         # ---------------------------------------------------------------- #
         # Aba: Histórico
@@ -663,6 +750,12 @@ if TK_AVAILABLE:
             self.hist_tree.configure(yscrollcommand=scroll.set)
             self.hist_tree.pack(side="left", fill="both", expand=True)
             scroll.pack(side="left", fill="y")
+            self.ctx_history = self._make_context_menu([
+                ("Copiar detalhe", self.copy_history_row),
+                "-",
+                ("Exportar…", self.history_export),
+            ])
+            self._bind_context(self.hist_tree, self.ctx_history)
 
         def _build_logs(self) -> None:
             self.log_panel = LogPanel(self)
@@ -829,6 +922,21 @@ if TK_AVAILABLE:
             self.clipboard_clear()
             self.clipboard_append(ip)
             self.log_panel.log(f"IP {ip} copiado para a área de transferência.")
+
+        def result_properties(self) -> None:
+            """Mostra os detalhes do dispositivo selecionado na Descoberta."""
+            selection = self.tree.selection()
+            if not selection:
+                self.log_panel.log("Selecione um dispositivo para ver as propriedades.", "warn")
+                return
+            values = self.tree.item(selection[0], "values")
+            lines = [
+                f"IP:       {values[0]}",
+                f"Hostname: {values[1]}",
+                f"Porta:    {values[2]}",
+                f"Estado:   {values[3]}",
+            ]
+            self._show_text_dialog(f"Propriedades — {values[0]}", "\n".join(lines))
 
         def connect(self) -> None:
             ip = self._selected_ip()
@@ -1030,6 +1138,32 @@ if TK_AVAILABLE:
                 else:
                     extra = ["-i", key.path]
             self._spawn_ssh(c.host, c.port, c.user, extra, connection_id=c.id)
+
+        def connection_properties(self) -> None:
+            """Mostra os detalhes da conexão salva selecionada."""
+            if not self._require_store(self.connections, "conexões"):
+                return
+            ref = self._selected(self.conn_tree)
+            if not ref:
+                self.log_panel.log("Selecione uma conexão para ver as propriedades.", "warn")
+                return
+            c = self.connections.require(ref)
+            chave = "-"
+            if c.key_id and self.keys is not None:
+                key = self.keys.get(c.key_id)
+                chave = f"{key.name} ({key.path})" if key else f"{c.key_id} (não cadastrada)"
+            lines = [
+                f"Nome:        {c.name}",
+                f"ID:          {c.id}",
+                f"Host:        {c.host}",
+                f"Porta:       {c.port}",
+                f"Usuário:     {c.user or '-'}",
+                f"Chave:       {chave}",
+                f"Observações: {c.notes or '-'}",
+                f"Criada em:   {c.created_at}",
+                f"Editada em:  {c.updated_at}",
+            ]
+            self._show_text_dialog(f"Propriedades — {c.name}", "\n".join(lines))
 
         # ---------------------------------------------------------------- #
         # Chaves (ações)
@@ -1292,6 +1426,18 @@ if TK_AVAILABLE:
                 return
             self.log_panel.log(f"Histórico apagado ({removed} evento(s)).")
             self.refresh_history()
+
+        def copy_history_row(self) -> None:
+            """Copia a linha do histórico selecionada para a área de transferência."""
+            selection = self.hist_tree.selection()
+            if not selection:
+                self.log_panel.log("Selecione um evento para copiar.", "warn")
+                return
+            values = self.hist_tree.item(selection[0], "values")
+            text = " | ".join(str(value) for value in values)
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            self.log_panel.log("Evento copiado para a área de transferência.")
 
         # ---------------------------------------------------------------- #
         # Sessão SSH em terminal independente (reutilizado por tudo)

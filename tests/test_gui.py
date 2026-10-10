@@ -375,6 +375,84 @@ class AppSmokeTests(unittest.TestCase):
         finally:
             app.destroy()
 
+    def test_menu_de_contexto_seleciona_e_abre(self):
+        """Botão direito seleciona a linha sob o cursor e posta o menu."""
+        from types import SimpleNamespace
+        from unittest import mock
+
+        from pyssh.gui import App
+
+        app = App()
+        try:
+            iid = app.tree.insert("", "end", values=("10.0.0.1", "host", "8022", "aberta"))
+            app.update_idletasks()
+            bbox = app.tree.bbox(iid)
+            self.assertTrue(bbox, "linha sem geometria")
+            event = SimpleNamespace(y=bbox[1] + 1, x_root=120, y_root=200)
+            with mock.patch.object(app.ctx_results, "tk_popup") as popup:
+                shown = app._popup_context(event, app.tree, app.ctx_results)
+            self.assertTrue(shown)
+            self.assertEqual(app.tree.selection(), (iid,))
+            popup.assert_called_once_with(120, 200)
+            # Rótulos do menu da Descoberta (separadores não têm label).
+            labels = [
+                app.ctx_results.entrycget(i, "label")
+                for i in range(app.ctx_results.index("end") + 1)
+                if app.ctx_results.type(i) == "command"
+            ]
+            self.assertIn("Conectar", labels)
+            self.assertIn("Propriedades", labels)
+            # Sem linha sob o cursor E sem seleção: menu não abre.
+            app.tree.selection_remove(app.tree.selection())
+            vazio = SimpleNamespace(y=bbox[1] + bbox[3] + 10, x_root=1, y_root=1)
+            with mock.patch.object(app.ctx_results, "tk_popup") as popup:
+                self.assertFalse(app._popup_context(vazio, app.tree, app.ctx_results))
+                popup.assert_not_called()
+        finally:
+            app.destroy()
+
+    def test_propriedades_da_conexao_abrem_dialogo(self):
+        """Propriedades mostra host/porta da conexão (com store em memória)."""
+        from types import SimpleNamespace
+        from unittest import mock
+
+        from pyssh.gui import App
+
+        app = App()
+        try:
+            fake = SimpleNamespace(
+                id="abc12345", name="Casa", host="10.0.0.5", port=2222,
+                user="dev", key_id=None, notes="teste",
+                created_at="2026-10-10T10:00:00", updated_at="2026-10-10T10:00:00",
+            )
+            app.connections = mock.Mock()
+            app.connections.require.return_value = fake
+            iid = app.conn_tree.insert(
+                "", "end", iid=fake.id,
+                values=(fake.name, fake.host, fake.port, fake.user, "-"),
+            )
+            app.conn_tree.selection_set(iid)
+            app.connection_properties()
+            dialogs = [w for w in app.winfo_children() if w.winfo_class() == "Toplevel"]
+            self.assertTrue(dialogs, "diálogo de propriedades não abriu")
+            dlg = dialogs[-1]
+            dlg.update_idletasks()
+            conteudo = []
+
+            def walk(w):
+                if w.winfo_class() == "Text":
+                    conteudo.append(w.get("1.0", "end"))
+                for child in w.winfo_children():
+                    walk(child)
+
+            walk(dlg)
+            texto = "".join(conteudo)
+            for esperado in ("Casa", "10.0.0.5", "2222", "abc12345"):
+                self.assertIn(esperado, texto)
+            dlg.destroy()
+        finally:
+            app.destroy()
+
     def test_icone_da_janela_carregado(self):
         """O PNG da raiz é carregado e definido como ícone da janela."""
         from pyssh.gui import App, load_icon
