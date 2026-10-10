@@ -13,3 +13,9 @@ nohup.out
 
 # Preferências locais do pyssh
 .pyssh-settings.json
+
+# Artefatos de empacotamento locais
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.pkg.tar.*
+packaging/arch/*.tar.gz

@@ -1,0 +1,5 @@
+#!/bin/sh
+# pyssh-cli — linha de comando (wrapper da instalação em /usr).
+# Gerado por packaging/build-deb.sh, PKGBUILD e pyssh.spec (Fedora/RHEL).
+PYTHONPATH="/usr/lib/pyssh${PYTHONPATH:+:$PYTHONPATH}" \
+    exec /usr/bin/python3 /usr/lib/pyssh/cli.py "$@"

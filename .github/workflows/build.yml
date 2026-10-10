@@ -1,0 +1,125 @@
+name: build
+
+# Build de todos os artefatos: portátil (Linux/Windows), AppImage, .deb,
+# .pkg.tar.zst (Arch) e .rpm (Fedora). Publica tudo na release da tag v*.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  portable-appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependências
+        run: |
+          pip install pyinstaller
+          sudo apt-get update && sudo apt-get install -y squashfs-tools
+      - name: Portátil
+        run: packaging/build-portable.sh
+      - name: AppImage
+        run: packaging/build-appimage.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-portable-appimage
+          path: |
+            dist/pyssh-portable.zip
+            dist/*.AppImage
+
+  deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: .deb
+        run: packaging/build-deb.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debian-package
+          path: dist/*.deb
+
+  arch-package:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependências
+        run: |
+          pacman -Syu --noconfirm --needed python python-tk openssh sudo
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+          chown -R builder .
+      - name: .pkg.tar.zst
+        shell: bash
+        run: |
+          packaging/make-source-tarball.sh "packaging/arch/pyssh-$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml).tar.gz"
+          chmod -R a+rX .
+          su builder -c 'cd packaging/arch && makepkg -s --noconfirm --force'
+          mkdir -p dist
+          cp packaging/arch/*.pkg.tar.* dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-package
+          path: dist/*.pkg.tar.*
+
+  rpm-package:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependências
+        run: dnf -y install rpm-build tar gzip findutils sed
+      - name: .rpm
+        run: |
+          packaging/make-source-tarball.sh
+          mkdir -p ~/rpmbuild/SOURCES ~/rpmbuild/SPECS
+          cp "dist/pyssh-$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml).tar.gz" ~/rpmbuild/SOURCES/
+          cp packaging/fedora/pyssh.spec ~/rpmbuild/SPECS/
+          rpmbuild -ba ~/rpmbuild/SPECS/pyssh.spec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fedora-package
+          path: ~/rpmbuild/RPMS/noarch/*.rpm
+
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependências
+        run: pip install pyinstaller
+      - name: Portátil (.exe GUI + CLI)
+        run: packaging/build-portable.sh
+      - name: Smoke test
+        shell: bash
+        run: |
+          dist/pyssh-portable/pyssh/pyssh-cli.exe --help
+          dist/pyssh-portable/pyssh/pyssh.exe --selftest
+      - name: Zip
+        run: python -m zipfile -c pyssh-portable-windows.zip dist/pyssh-portable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: pyssh-portable-windows.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [portable-appimage, deb, arch-package, rpm-package, windows-exe]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
+          generate_release_notes: true

@@ -1,0 +1,31 @@
+# Maintainer: daniel <charaodaniel@users.noreply.github.com>
+pkgname=pyssh
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Localiza dispositivos SSH na rede local e abre sessões em terminal'
+arch=('any')
+url='https://github.com/charaodaniel/pyssh'
+license=('MIT')
+depends=('python' 'python-tk' 'openssh')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+# Rodar `makepkg -g` e atualizar este hash após cada tag vX.Y.Z.
+# Em CI/local o tarball é gerado por packaging/make-source-tarball.sh e
+# colocado ao lado deste PKGBUILD (o makepkg o usa sem baixar).
+sha256sums=('SKIP')
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -d "$pkgdir/usr/lib/pyssh" "$pkgdir/usr/bin"
+
+  cp -r pyssh "$pkgdir/usr/lib/pyssh/pyssh"
+  install -m644 main.py cli.py LICENSE README.md "$pkgdir/usr/lib/pyssh/"
+  find "$pkgdir" \( -name '__pycache__' -o -name '*.pyc' \) -prune -exec rm -rf {} + 2>/dev/null || true
+
+  install -Dm755 packaging/wrappers/pyssh     "$pkgdir/usr/bin/pyssh"
+  install -Dm755 packaging/wrappers/pyssh-cli "$pkgdir/usr/bin/pyssh-cli"
+  install -Dm644 packaging/pyssh.desktop "$pkgdir/usr/share/applications/pyssh.desktop"
+  install -Dm644 packaging/icons/pyssh-256.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/pyssh.png"
+  install -Dm644 packaging/icons/pyssh-128.png "$pkgdir/usr/share/icons/hicolor/128x128/apps/pyssh.png"
+  install -Dm644 packaging/icons/pyssh-48.png  "$pkgdir/usr/share/icons/hicolor/48x48/apps/pyssh.png"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
