@@ -8,7 +8,7 @@ import queue
 import time
 import unittest
 
-from pyssh.gui import LOG_LEVELS, ScanWorker, format_log
+from pyssh.gui import CATPPUCCIN_MOCHA, LOG_LEVELS, ScanWorker, format_log
 from tests.test_scanner import Listener
 
 
@@ -46,6 +46,133 @@ class FormatLogTests(unittest.TestCase):
 
     def test_horario_real_quando_nao_informado(self):
         self.assertRegex(format_log("ok"), r"^\[\d{2}:\d{2}:\d{2}\] \[INFO \] ok$")
+
+
+class ThemeTests(unittest.TestCase):
+    """Paleta Catppuccin Mocha — válida sem Tk nem display."""
+
+    def test_paleta_tem_as_cores_essenciais(self):
+        essenciais = (
+            "base", "mantle", "crust", "text", "subtext0", "subtext1",
+            "surface0", "surface1", "surface2", "overlay0",
+            "blue", "yellow", "red", "green", "mauve", "lavender",
+        )
+        for name in essenciais:
+            self.assertIn(name, CATPPUCCIN_MOCHA)
+
+    def test_todas_as_cores_sao_hex_de_6_digitos(self):
+        for name, value in CATPPUCCIN_MOCHA.items():
+            self.assertRegex(
+                value, r"^#[0-9a-f]{6}$",
+                f"cor {name!r} fora do formato #rrggbb minúsculo: {value!r}",
+            )
+
+    def test_cores_de_log_sao_da_paleta(self):
+        from pyssh.gui import LogPanel  # noqa: F401 - garante que a classe existe
+
+        self.assertEqual(CATPPUCCIN_MOCHA["yellow"], "#f9e2af")
+        self.assertEqual(CATPPUCCIN_MOCHA["red"], "#f38ba8")
+        self.assertEqual(CATPPUCCIN_MOCHA["base"], "#1e1e2e")
+
+
+class IconTests(unittest.TestCase):
+    """Ícone do pyssh — verificável sem Tk nem display."""
+
+    def test_icone_empacotado_existe_e_eh_png(self):
+        from pathlib import Path
+
+        from pyssh.gui import ICON_MAX_LOAD_PX, icon_paths
+
+        primary = Path(icon_paths()[0])
+        self.assertTrue(primary.is_file(), f"ícone empacotado ausente: {primary}")
+        with primary.open("rb") as fh:
+            self.assertEqual(
+                fh.read(8), b"\x89PNG\r\n\x1a\n",
+                f"{primary} não é um PNG válido",
+            )
+
+    def test_icone_dentro_do_limite_que_o_tk_consegue_decodificar(self):
+        """PNG ≥768px trava o decoder do Tk neste sistema (ver gui.py)."""
+        from pathlib import Path
+
+        import struct
+
+        from pyssh.gui import ICON_MAX_LOAD_PX, icon_paths
+
+        path = Path(icon_paths()[0])
+        with path.open("rb") as fh:
+            header = fh.read(26)
+        width, height = struct.unpack(">II", header[16:24])
+        self.assertLessEqual(width, ICON_MAX_LOAD_PX)
+        self.assertLessEqual(height, ICON_MAX_LOAD_PX)
+
+    def test_load_icon_degrada_quando_arquivo_falta(self):
+        """Ícone ausente nunca impede a janela: devolve None em vez de erro."""
+        from unittest import mock
+
+        from pyssh import gui
+
+        if not gui.TK_AVAILABLE:
+            self.skipTest("Tk indisponível")
+        with mock.patch.object(
+            gui, "icon_paths", return_value=["/nonexistent/pyssh-icon.png"]
+        ):
+            self.assertIsNone(gui.load_icon())
+
+    def test_load_icon_nunca_levanta_excecao(self):
+        """Falha do PhotoImage (ex.: sem root) vira None, não exceção."""
+        from unittest import mock
+
+        from pyssh import gui
+
+        if not gui.TK_AVAILABLE:
+            self.skipTest("Tk indisponível")
+        with mock.patch.object(
+            gui.tk, "PhotoImage", side_effect=RuntimeError("no default root window")
+        ):
+            self.assertIsNone(gui.load_icon())
+
+
+class WatermarkTests(unittest.TestCase):
+    """Marca d'água — verificável sem Tk nem display."""
+
+    def test_watermark_existe_e_eh_png(self):
+        from pathlib import Path
+
+        from pyssh.gui import watermark_path
+
+        path = Path(watermark_path())
+        self.assertTrue(path.is_file(), f"marca d'água ausente: {path}")
+        with path.open("rb") as fh:
+            self.assertEqual(fh.read(8), b"\x89PNG\r\n\x1a\n")
+
+    def test_watermark_dentro_do_limite_do_tk(self):
+        """PNG ≥768px trava o decoder do Tk neste sistema (ver gui.py)."""
+        import struct
+        from pathlib import Path
+
+        from pyssh.gui import WATERMARK_MAX_LOAD_PX, watermark_path
+
+        path = Path(watermark_path())
+        with path.open("rb") as fh:
+            header = fh.read(26)
+        width, height = struct.unpack(">II", header[16:24])
+        self.assertGreater(width, 0)
+        self.assertLessEqual(width, WATERMARK_MAX_LOAD_PX)
+        self.assertLessEqual(height, WATERMARK_MAX_LOAD_PX)
+
+    def test_load_watermark_degrada_quando_arquivo_falta(self):
+        """Marca ausente nunca impede a janela: devolve None, não erro."""
+        from unittest import mock
+
+        from pyssh import gui
+
+        if not gui.TK_AVAILABLE:
+            self.skipTest("Tk indisponível")
+        with mock.patch.object(
+            gui, "watermark_path", return_value="/nonexistent/watermark.png"
+        ):
+            self.assertIsNone(gui.load_watermark())
 
 
 class ScanWorkerTests(unittest.TestCase):
@@ -181,6 +308,72 @@ class AppSmokeTests(unittest.TestCase):
                 self.assertEqual(app.network_var.get(), "192.168.8.0/24")
             finally:
                 app.destroy()
+
+    def test_marca_dagua_aplicada(self):
+        """Fundo (canvas), banner e marcas nas áreas vazias estão na janela."""
+        from pyssh.gui import WATERMARK_MAX_LOAD_PX, App
+
+        app = App()
+        try:
+            self.assertIsNotNone(app._watermark, "load_watermark devolveu None")
+            self.assertGreater(app._watermark.width(), 0)
+            self.assertLessEqual(app._watermark.width(), WATERMARK_MAX_LOAD_PX)
+            self.assertIsNotNone(app._wm_small)
+            self.assertGreater(app._wm_small.width(), 0)
+            self.assertIsNotNone(app._wm_dialog)
+            self.assertIsNotNone(app._banner_logo)
+            # Canvas de fundo com a imagem criada e centralizada no resize.
+            self.assertTrue(app._bg_canvas.winfo_exists())
+            self.assertIsNotNone(app._bg_item, "item da marca no canvas não criado")
+            app._bg_canvas.update_idletasks()
+            coords = app._bg_canvas.coords(app._bg_item)
+            self.assertEqual(len(coords), 2)
+        finally:
+            app.destroy()
+
+    def test_icone_da_janela_carregado(self):
+        """O PNG da raiz é carregado e definido como ícone da janela."""
+        from pyssh.gui import App, load_icon
+
+        app = App()
+        try:
+            self.assertIsNotNone(app._icon, "load_icon devolveu None")
+            self.assertGreater(app._icon.width(), 0)
+            icon = load_icon(app)
+            self.assertIsNotNone(icon)
+            self.assertGreater(icon.width(), 0)
+        finally:
+            app.destroy()
+
+    def test_tema_catppuccin_aplicado_na_janela(self):
+        """A janela usa a paleta Mocha no fundo e nos widgets ttk."""
+        from pyssh.gui import App
+
+        app = App()
+        try:
+            self.assertEqual(str(app.cget("background")), CATPPUCCIN_MOCHA["base"])
+            self.assertEqual(
+                app.style.lookup("TButton", "background"),
+                CATPPUCCIN_MOCHA["surface1"],
+            )
+            self.assertEqual(
+                app.style.lookup("Treeview", "background"),
+                CATPPUCCIN_MOCHA["mantle"],
+            )
+            self.assertEqual(
+                str(app.log_panel.text.cget("background")),
+                CATPPUCCIN_MOCHA["crust"],
+            )
+            self.assertEqual(
+                app.log_panel.text.tag_cget("warn", "foreground"),
+                CATPPUCCIN_MOCHA["yellow"],
+            )
+            self.assertEqual(
+                app.log_panel.text.tag_cget("error", "foreground"),
+                CATPPUCCIN_MOCHA["red"],
+            )
+        finally:
+            app.destroy()
 
     def test_porta_invalida_impede_a_busca(self):
         from unittest import mock

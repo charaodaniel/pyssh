@@ -17,6 +17,7 @@ from __future__ import annotations
 import queue
 import threading
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from . import history
@@ -61,6 +62,218 @@ except Exception as exc:  # ImportError + falhas de biblioteca compartilhada
 
 # Níveis de log usados pelo painel de saída.
 LOG_LEVELS = {"info": "INFO", "warn": "AVISO", "error": "ERRO"}
+
+# Paleta oficial Catppuccin Mocha (hex minúsculos, sem alfa).
+CATPPUCCIN_MOCHA: Dict[str, str] = {
+    "rosewater": "#f5e0dc",
+    "flamingo": "#f2cdcd",
+    "pink": "#f5c2e7",
+    "mauve": "#cba6f7",
+    "red": "#f38ba8",
+    "maroon": "#eba0ac",
+    "peach": "#fab387",
+    "yellow": "#f9e2af",
+    "green": "#a6e3a1",
+    "teal": "#94e2d5",
+    "sky": "#89dceb",
+    "sapphire": "#74c7ec",
+    "blue": "#89b4fa",
+    "lavender": "#b4befe",
+    "text": "#cdd6f4",
+    "subtext1": "#bac2de",
+    "subtext0": "#a6adc8",
+    "overlay2": "#9399b2",
+    "overlay1": "#7f849c",
+    "overlay0": "#6c7086",
+    "surface2": "#585b70",
+    "surface1": "#45475a",
+    "surface0": "#313244",
+    "base": "#1e1e2e",
+    "mantle": "#181825",
+    "crust": "#11111b",
+}
+
+
+def apply_theme(style: Any) -> None:
+    """Aplica o tema Catppuccin Mocha a um ``ttk.Style``.
+
+    Usa o tema ``clam`` (padrão do Tk 8.6), o único que expõe cores de fundo
+    dos widgets ttk. Sem ``clam`` o tema padrão é mantido e estas opções são
+    simplesmente ignoradas pelo Tk.
+    """
+    c = CATPPUCCIN_MOCHA
+    try:
+        style.theme_use("clam")
+    except Exception:  # TclError/ValueError: tema ausente — segue o padrão
+        pass
+
+    style.configure("TFrame", background=c["base"])
+    style.configure("TLabel", background=c["base"], foreground=c["text"])
+    style.configure("TLabelframe", background=c["base"], foreground=c["subtext0"])
+    style.configure("TLabelframe.Label", background=c["base"], foreground=c["mauve"])
+
+    style.configure(
+        "TButton",
+        background=c["surface1"],
+        foreground=c["text"],
+        bordercolor=c["surface0"],
+        lightcolor=c["surface1"],
+        darkcolor=c["surface0"],
+        relief="flat",
+        padding=(10, 4),
+    )
+    style.map(
+        "TButton",
+        background=[
+            ("active", c["surface0"]),
+            ("pressed", c["surface2"]),
+            ("disabled", c["mantle"]),
+        ],
+        foreground=[("disabled", c["overlay0"])],
+    )
+
+    style.configure(
+        "TEntry",
+        fieldbackground=c["surface0"],
+        foreground=c["text"],
+        insertcolor=c["text"],
+        bordercolor=c["surface0"],
+        lightcolor=c["surface0"],
+        darkcolor=c["surface0"],
+        selectbackground=c["blue"],
+        selectforeground=c["base"],
+        relief="flat",
+        padding=4,
+    )
+    style.map(
+        "TEntry",
+        fieldbackground=[("disabled", c["mantle"])],
+        foreground=[("disabled", c["overlay0"])],
+        bordercolor=[("focus", c["blue"])],
+    )
+
+    style.configure(
+        "Treeview",
+        background=c["mantle"],
+        foreground=c["text"],
+        fieldbackground=c["mantle"],
+        bordercolor=c["base"],
+        relief="flat",
+        rowheight=24,
+    )
+    style.map(
+        "Treeview",
+        background=[("selected", c["blue"])],
+        foreground=[("selected", c["base"])],
+    )
+    style.configure(
+        "Treeview.Heading",
+        background=c["surface0"],
+        foreground=c["subtext1"],
+        relief="flat",
+        padding=(6, 6),
+    )
+    style.map("Treeview.Heading", background=[("active", c["surface1"])])
+
+    style.configure(
+        "TNotebook",
+        background=c["mantle"],
+        borderwidth=0,
+    )
+    style.configure(
+        "TNotebook.Tab",
+        background=c["surface0"],
+        foreground=c["subtext0"],
+        padding=(14, 6),
+        borderwidth=0,
+    )
+    style.map(
+        "TNotebook.Tab",
+        background=[("selected", c["base"]), ("active", c["surface1"])],
+        foreground=[("selected", c["blue"]), ("active", c["text"])],
+    )
+
+    style.configure(
+        "Horizontal.TProgressbar",
+        background=c["blue"],
+        troughcolor=c["surface0"],
+        bordercolor=c["surface0"],
+        lightcolor=c["blue"],
+        darkcolor=c["blue"],
+    )
+
+    for orientation in ("Vertical", "Horizontal"):
+        style.configure(
+            f"{orientation}.TScrollbar",
+            background=c["surface1"],
+            troughcolor=c["mantle"],
+            bordercolor=c["mantle"],
+            arrowcolor=c["subtext0"],
+            relief="flat",
+        )
+        style.map(
+            f"{orientation}.TScrollbar",
+            background=[("active", c["surface2"])],
+            arrowcolor=[("active", c["text"])],
+        )
+
+
+_PKG_DIR = Path(__file__).resolve().parent
+
+# O PNG original na raiz do repositório (1254×1254, com chunk privado
+# `caBX`) TRAVA o decoder do Tk 8.6 neste sistema — por isso a cópia
+# empacotada é reencodada limpa e reduzida para 256×256 (carga ~0,1s;
+# ≥768px não termina). Substitua `pyssh/icon.png` mantendo esses limites.
+ICON_MAX_LOAD_PX = 256
+
+
+def icon_paths() -> List[str]:
+    """Candidatos ao ícone do pyssh, do mais provável ao menos.
+
+    Apenas arquivos dentro do pacote: o PNG da raiz do repositório não é
+    candidato porque o Tk não consegue decodificá-lo (ver ``ICON_MAX_LOAD_PX``).
+    """
+    return [str(_PKG_DIR / "icon.png")]
+
+
+def load_icon(master: Optional[Any] = None) -> Optional[Any]:
+    """Carrega o ícone como ``tk.PhotoImage``; ``None`` se nada carregar.
+
+    Não levanta exceção: ícone é item de conforto e nunca pode impedir a
+    janela de abrir. ``master`` deve ser a janela (o Tk exige um root).
+    """
+    if not TK_AVAILABLE:
+        return None
+    for path in icon_paths():
+        try:
+            return tk.PhotoImage(file=path, master=master)
+        except Exception:  # ausente, corrompido ou sem root padrão
+            continue
+    return None
+
+
+WATERMARK_NAME = "watermark.png"
+# Mesmo limite do ícone: o decoder deste Tk pendura com PNGs ≥768px;
+# a marca em 384×384 carrega em ~0,1s.
+WATERMARK_MAX_LOAD_PX = 512
+
+
+def watermark_path() -> str:
+    """Caminho da marca d'água empacotada (logo a ~8% de opacidade)."""
+    return str(_PKG_DIR / WATERMARK_NAME)
+
+
+def load_watermark(master: Optional[Any] = None) -> Optional[Any]:
+    """Carrega a marca d'água como ``tk.PhotoImage``; ``None`` se falhar.
+
+    Nunca levanta exceção: decoração não pode impedir a janela de abrir.
+    """
+    if not TK_AVAILABLE:
+        return None
+    try:
+        return tk.PhotoImage(file=watermark_path(), master=master)
+    except Exception:  # arquivo ausente/corrompido ou sem root padrão
+        return None
 
 
 def format_log(message: str, level: str = "info", timestamp: Optional[str] = None) -> str:
@@ -124,23 +337,26 @@ if TK_AVAILABLE:
 
         def __init__(self, master) -> None:
             super().__init__(master)
+            c = CATPPUCCIN_MOCHA
             self.text = tk.Text(
                 self,
                 height=10,
                 wrap="word",
                 state="disabled",
-                background="#14161a",
-                foreground="#d3d8e0",
-                insertbackground="#d3d8e0",
+                background=c["crust"],
+                foreground=c["text"],
+                insertbackground=c["text"],
+                selectbackground=c["blue"],
+                selectforeground=c["base"],
                 relief="flat",
                 padx=6,
                 pady=4,
             )
             scroll = ttk.Scrollbar(self, command=self.text.yview)
             self.text.configure(yscrollcommand=scroll.set)
-            self.text.tag_configure("info", foreground="#d3d8e0")
-            self.text.tag_configure("warn", foreground="#e5c07b")
-            self.text.tag_configure("error", foreground="#e06c75")
+            self.text.tag_configure("info", foreground=c["text"])
+            self.text.tag_configure("warn", foreground=c["yellow"])
+            self.text.tag_configure("error", foreground=c["red"])
 
             self.text.grid(row=0, column=0, sticky="nsew")
             scroll.grid(row=0, column=1, sticky="ns")
@@ -182,6 +398,41 @@ if TK_AVAILABLE:
             self.minsize(820, 560)
             self.geometry("960x660")
 
+            # Tema Catppuccin Mocha: cores da janela, dos diálogos tk.Text
+            # e de todos os widgets ttk.
+            self.configure(background=CATPPUCCIN_MOCHA["base"])
+            self.style = ttk.Style(self)
+            apply_theme(self.style)
+
+            # Ícone da janela (PNG); a referência fica em self._icon para o
+            # PhotoImage não ser coletado pelo GC enquanto a janela viver.
+            self._icon = load_icon(self)
+            if self._icon is not None:
+                self.iconphoto(True, self._icon)
+
+            # Marca d'água: uma única decodificação reutilizada por todas as
+            # decorações (as referências ficam em self; o GC de PhotoImage
+            # apagaria a imagem dos rótulos).
+            self._watermark = load_watermark(self)              # 384px, ~8%
+            self._wm_small = self._watermark.subsample(12, 12) if self._watermark else None   # 32px
+            self._wm_dialog = self._watermark.subsample(2, 2) if self._watermark else None    # 192px
+            self._banner_logo = self._icon.subsample(8, 8) if self._icon else None            # 32px colorido
+
+            # Fundo da janela: canvas com place() fica por trás de todo o
+            # conteúdo (os widgets ttk são opacos, então a marca aparece nas
+            # margens e nos gaps entre eles).
+            self._bg_canvas = tk.Canvas(
+                self,
+                highlightthickness=0,
+                borderwidth=0,
+                background=CATPPUCCIN_MOCHA["base"],
+            )
+            self._bg_canvas.place(x=0, y=0, relwidth=1, relheight=1)
+            self._bg_item = None
+            if self._watermark is not None:
+                self._bg_item = self._bg_canvas.create_image(0, 0, image=self._watermark)
+                self._bg_canvas.bind("<Configure>", self._recenter_watermark)
+
             self.settings: Settings = load_settings()
             self.worker: Optional[ScanWorker] = None
             self.results: List[HostResult] = []
@@ -189,6 +440,7 @@ if TK_AVAILABLE:
             self.connections = self._safe_store(ConnectionStore, "conexões")
             self.keys = self._safe_store(KeyStore, "chaves")
 
+            self._build_header()
             self.notebook = ttk.Notebook(self)
             self.notebook.pack(fill="both", expand=True, padx=8, pady=(8, 0))
 
@@ -221,6 +473,31 @@ if TK_AVAILABLE:
         # Layout
         # ---------------------------------------------------------------- #
 
+        def _build_header(self) -> None:
+            """Cabeçalho com a marca: logo + nome + tagline (empacotado primeiro)."""
+            header = ttk.Frame(self, padding=(12, 8, 12, 2))
+            header.pack(fill="x")
+            if self._banner_logo is not None:
+                ttk.Label(header, image=self._banner_logo).pack(side="left")
+            ttk.Label(header, text="pyssh", foreground=CATPPUCCIN_MOCHA["mauve"]).pack(
+                side="left", padx=(8, 0)
+            )
+            ttk.Label(
+                header,
+                text="dispositivos SSH na rede local",
+                foreground=CATPPUCCIN_MOCHA["subtext0"],
+            ).pack(side="left", padx=(10, 0))
+
+        def _recenter_watermark(self, event) -> None:
+            """Mantém a marca d'água do canvas centralizada ao redimensionar."""
+            if self._bg_item is not None:
+                self._bg_canvas.coords(self._bg_item, event.width // 2, event.height // 2)
+
+        def _pack_toolbar_mark(self, bar) -> None:
+            """Marca d'água à direita de uma barra (usa a área vazia do fim)."""
+            if self._wm_small is not None:
+                ttk.Label(bar, image=self._wm_small).pack(side="right")
+
         def _build_discovery_tab(self) -> None:
             tab = ttk.Frame(self.notebook, padding=(10, 10, 10, 6))
             self.notebook.add(tab, text="Descoberta")
@@ -251,6 +528,11 @@ if TK_AVAILABLE:
             self.cancel_button.grid(row=0, column=7, padx=(0, 6))
             ttk.Button(form, text="Conectar via SSH", command=self.connect).grid(row=0, column=8, padx=(0, 6))
             ttk.Button(form, text="Copiar IP", command=self.copy_ip).grid(row=0, column=9)
+            if self._wm_small is not None:
+                form.columnconfigure(10, weight=1)
+                ttk.Label(form, image=self._wm_small).grid(
+                    row=0, column=10, sticky="e", padx=(12, 0)
+                )
 
         def _build_results(self, container) -> None:
             box = ttk.Frame(container)
@@ -299,6 +581,7 @@ if TK_AVAILABLE:
             self.conn_search_var = tk.StringVar()
             self.conn_search_var.trace_add("write", lambda *_: self.refresh_connections())
             ttk.Entry(bar, textvariable=self.conn_search_var, width=18).pack(side="left", padx=4)
+            self._pack_toolbar_mark(bar)
 
             columns = ("name", "host", "port", "user", "key")
             self.conn_tree = ttk.Treeview(tab, columns=columns, show="headings", selectmode="browse")
@@ -329,6 +612,7 @@ if TK_AVAILABLE:
             ttk.Button(bar, text="Remover", command=self.key_delete).pack(side="left")
             ttk.Button(bar, text="Gerar nova", command=self.key_generate).pack(side="left", padx=6)
             ttk.Button(bar, text="Ver chave", command=self.key_show).pack(side="left")
+            self._pack_toolbar_mark(bar)
 
             columns = ("name", "type", "fingerprint", "path")
             self.key_tree = ttk.Treeview(tab, columns=columns, show="headings", selectmode="browse")
@@ -364,6 +648,7 @@ if TK_AVAILABLE:
             self.hist_address_var = tk.StringVar()
             self.hist_address_var.trace_add("write", lambda *_: self.refresh_history())
             ttk.Entry(bar, textvariable=self.hist_address_var, width=14).pack(side="left", padx=4)
+            self._pack_toolbar_mark(bar)
 
             columns = ("timestamp", "event", "address", "status", "message")
             self.hist_tree = ttk.Treeview(tab, columns=columns, show="headings", selectmode="browse")
@@ -390,6 +675,7 @@ if TK_AVAILABLE:
             self.progress.pack(side="left")
             self.status_var = tk.StringVar(value="Pronto.")
             ttk.Label(bar, textvariable=self.status_var).pack(side="left", padx=8)
+            self._pack_toolbar_mark(bar)
 
         # ---------------------------------------------------------------- #
         # Estado inicial
@@ -575,6 +861,12 @@ if TK_AVAILABLE:
             dialog.transient(self)
             dialog.grab_set()
             dialog.resizable(False, False)
+            dialog.configure(background=CATPPUCCIN_MOCHA["base"])
+            if self._wm_dialog is not None and fields:
+                ttk.Label(dialog, image=self._wm_dialog).grid(
+                    row=0, column=2, rowspan=len(fields),
+                    padx=(14, 16), pady=10, sticky="n",
+                )
 
             vars_: Dict[str, tk.StringVar] = {}
             for row, (key, label, initial) in enumerate(fields):
@@ -904,11 +1196,35 @@ if TK_AVAILABLE:
             dialog.title(title)
             dialog.transient(self)
             dialog.geometry("720x360")
-            widget = tk.Text(dialog, wrap="none", width=80, height=18)
+            c = CATPPUCCIN_MOCHA
+            dialog.configure(background=c["base"])
+
+            # O rodapé é packado PRIMEIRO (side="bottom"): a geometria fixa
+            # 720x360 não tem espaço para um escravo packado depois do Text
+            # (req ≈344px) — o pack o esmagaria para 1x1 e nunca o mapearia.
+            footer = ttk.Frame(dialog)
+            ttk.Button(footer, text="Fechar", command=dialog.destroy).pack(side="left")
+            if self._wm_small is not None:
+                ttk.Label(footer, image=self._wm_small).pack(side="left", padx=(12, 0))
+            footer.pack(side="bottom", pady=(0, 8))
+
+            widget = tk.Text(
+                dialog,
+                wrap="none",
+                width=80,
+                height=18,
+                background=c["crust"],
+                foreground=c["text"],
+                insertbackground=c["text"],
+                selectbackground=c["blue"],
+                selectforeground=c["base"],
+                relief="flat",
+                padx=6,
+                pady=4,
+            )
             widget.pack(fill="both", expand=True, padx=8, pady=8)
             widget.insert("1.0", text)
             widget.configure(state="disabled")
-            ttk.Button(dialog, text="Fechar", command=dialog.destroy).pack(pady=(0, 8))
             dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
 
         # ---------------------------------------------------------------- #
@@ -1059,4 +1375,19 @@ def run_app(selftest: bool = False) -> int:
     return 0
 
 
-__all__ = ["App", "LOG_LEVELS", "LogPanel", "ScanWorker", "TK_AVAILABLE", "format_log", "run_app"]
+__all__ = [
+    "App",
+    "CATPPUCCIN_MOCHA",
+    "LOG_LEVELS",
+    "LogPanel",
+    "ScanWorker",
+    "TK_AVAILABLE",
+    "WATERMARK_MAX_LOAD_PX",
+    "apply_theme",
+    "format_log",
+    "icon_paths",
+    "load_icon",
+    "load_watermark",
+    "run_app",
+    "watermark_path",
+]

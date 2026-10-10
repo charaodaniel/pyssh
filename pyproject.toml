@@ -30,3 +30,6 @@ dev = []
 [tool.setuptools]
 packages = ["pyssh"]
 py-modules = ["cli", "main"]
+
+[tool.setuptools.package-data]
+pyssh = ["icon.png", "watermark.png"]
